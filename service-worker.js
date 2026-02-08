@@ -5,6 +5,7 @@ const CORE_ASSETS = [
   "./",
   "./index.html",
   "./manifest.json"
+  "./js/chart.min.js"
 ];
 
 self.addEventListener("install", event => {
@@ -37,4 +38,5 @@ self.addEventListener("fetch", event => {
     fetch(event.request).catch(() => caches.match(event.request))
   );
 });
+
 
