@@ -1,4 +1,4 @@
-const CACHE_NAME = "time-blocker-v2";
+const CACHE_NAME = "time-blocker-v3";
 
 // cache hanya file inti
 const CORE_ASSETS = [
@@ -37,3 +37,4 @@ self.addEventListener("fetch", event => {
     fetch(event.request).catch(() => caches.match(event.request))
   );
 });
+
