@@ -1,0 +1,4621 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1f2937">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <!-- iOS support -->
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <title>Aplikasi Time Blocker - Final</title>
+
+    <!-- Library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Style -->
+    <style>
+        :root {
+            --bg-color: #f3f4f6;
+            --text-color: #374151;
+            --border-color: #d1d5db;
+            --circle-size: 26px;
+            --gap-size: 6px;
+            
+            /* Default Colors */
+            --color-work: #3b82f6;
+            --color-meeting: #8b5cf6;
+            --color-break: #10b981;
+            --color-exercise: #f59e0b;
+            --color-personal: #ec4899;
+            
+            --color-past: #e5e7eb; /* Abu-abu solid untuk past kosong */
+            --color-white: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px 20px 150px 20px; /* DITAMBAH PADDING BOTTOM 150px */
+            overflow-x: hidden;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 15px;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        /* Navigasi */
+        .date-navigator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 10px;
+        }
+
+        .nav-btn {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            transition: transform 0.1s;
+        }
+        .nav-btn:active { transform: scale(0.95); }
+
+        .current-date {
+            font-weight: 700;
+            font-size: 1.1rem;
+            min-width: 200px;
+            text-align: center;
+        }
+
+        h1 { font-size: 1.4rem; margin-bottom: 5px; color: #111827; }
+        p.subtitle { font-size: 0.85rem; color: #6b7280; }
+
+        /* Tab Navigation */
+        .tab-navigation {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px 0;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-right: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .tab-btn:first-child {
+            border-radius: 8px 0 0 8px;
+        }
+
+        .tab-btn:last-child {
+            border-radius: 0 8px 8px 0;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .tab-btn.active {
+            background: #1f2937;
+            color: white;
+            border-color: #1f2937;
+        }
+
+        .tab-btn:hover:not(.active) {
+            background: #f9fafb;
+        }
+
+        /* Status Container - DIPERBARUI untuk layout dua kolom */
+        .status-container {
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-color);
+            padding: 0;
+            background: none;
+            border: none;
+            box-shadow: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-left, .status-right {
+            flex: 1;
+        }
+
+        .status-right {
+            text-align: right;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 4px;
+        }
+
+        .energy-label {
+            color: var(--text-color); /* Warna hitam normal untuk label */
+        }
+
+        .energy-percentage {
+            font-weight: 600;
+        }
+
+        .energy-percentage.positive {
+            color: var(--text-color); /* Warna hitam untuk 100% */
+        }
+
+        .energy-percentage.negative {
+            color: #dc2626; /* Warna merah untuk persentase negatif */
+        }
+
+        /* Controls - Disembunyikan */
+        .controls-container {
+            display: none;
+        }
+
+        /* Grid */
+        .schedule-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 40px; /* DITAMBAH MARGIN BOTTOM */
+        }
+
+        .hour-row {
+            display: flex;
+            align-items: center;
+            background: var(--color-white);
+            padding: 6px 12px;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        .hour-label {
+            width: 50px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #6b7280;
+            flex-shrink: 0;
+        }
+
+        .circles-container {
+            display: flex;
+            gap: var(--gap-size);
+            flex-wrap: nowrap;
+            padding: 2px 0;
+            flex-grow: 1;
+            justify-content: space-between;
+        }
+
+        /* CIRCLE STYLES */
+        .circle {
+            width: var(--circle-size);
+            height: var(--circle-size);
+            border-radius: 50%;
+            background-color: var(--color-white);
+            border: 1px solid #e5e7eb;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            flex-shrink: 0;
+            touch-action: none; /* Mencegah default touch behavior */
+        }
+
+        .circle:hover { transform: scale(1.2); z-index: 10; }
+
+        /* Style: Masa Depan (Terblokir) -> Putih + Tepi Warna Tebal */
+        .circle.filled {
+            background-color: var(--color-white);
+            border-width: 3px;
+        }
+
+        /* Style: Masa Lalu (Past) */
+        .circle.past {
+            background-color: var(--color-past); 
+            border-color: var(--color-past); 
+            border-width: 1px;
+            opacity: 1; /* Agar warna solid kelihatan jelas */
+        }
+
+        /* Circle yang dipilih selama drag */
+        .circle.selected {
+            background-color: rgba(59, 130, 246, 0.3) !important;
+            border-color: #3b82f6 !important;
+            border-width: 2px !important;
+            z-index: 5;
+        }
+
+        /* Ikon Tag/Label di dalam lingkaran - DI ATAS LINGKARAN */
+        .circle-tag {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 10px;
+            z-index: 15;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            pointer-events: none;
+        }
+
+        /* PERUBAHAN: Warna untuk tag kacang tanah diubah menjadi ungu */
+        /* Warna untuk setiap jenis tag */
+        .tag-check { background-color: #22c55e; } /* Hijau */
+        .tag-food { background-color: #f97316; } /* Oranye */
+        .tag-drink { background-color: #0ea5e9; } /* Biru */
+        .tag-peanut { background-color: #a855f7; } /* DIPERBARUI: Ungu untuk kacang tanah */
+
+        /* Tooltip */
+        .time-tooltip {
+            position: absolute;
+            bottom: 130%;
+            left: 50%;
+            transform: translateX(-50%) translateY(5px);
+            background: #111827;
+            color: white;
+            font-size: 10px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+            display: none;
+            pointer-events: none;
+            z-index: 20;
+            opacity: 0;
+            transition: opacity 0.2s, transform 0.2s;
+            text-align: center;
+            line-height: 1.4;
+        }
+        
+        .circle:hover .time-tooltip {
+            display: block;
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* Visual feedback untuk hold */
+        .circle.hold-active {
+            animation: pulse 0.5s ease-in-out;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        /* Stats Container */
+        .stats-container {
+            background: var(--color-white);
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 80px; /* DITAMBAH MARGIN BOTTOM LEBIH BESAR */
+            border: 1px solid var(--border-color);
+            display: none; /* Sembunyikan awalnya */
+        }
+
+        .stats-container.active {
+            display: block;
+        }
+
+        .stats-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .stats-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .stats-controls {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .stats-btn {
+            padding: 6px 10px;
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .stats-btn:hover {
+            background: #e5e7eb;
+        }
+
+        .stats-btn.active {
+            background: #1f2937;
+            color: white;
+            border-color: #1f2937;
+        }
+        
+        .stats-btn.warning {
+            background: #ef4444;
+            color: white;
+            border-color: #dc2626;
+        }
+        
+        .stats-btn.warning:hover {
+            background: #dc2626;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+        /* PERUBAHAN: Desain tabel yang lebih estetik dan minimalis */
+        .stats-summary {
+            margin-top: 25px;
+            width: 100%;
+            overflow-x: auto;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        .stats-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 0.9rem;
+        }
+
+        .stats-table thead {
+            background-color: #f9fafb;
+        }
+
+        .stats-table th {
+            padding: 16px 20px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #4b5563;
+            border-bottom: 2px solid #e5e7eb;
+            letter-spacing: 0.025em;
+        }
+
+        .stats-table th:first-child {
+            border-top-left-radius: 11px;
+            padding-left: 24px;
+        }
+
+        .stats-table th:last-child {
+            border-top-right-radius: 11px;
+            padding-right: 24px;
+        }
+
+        .stats-table td {
+            padding: 18px 20px;
+            border-bottom: 1px solid #f3f4f6;
+            vertical-align: middle;
+            color: #374151;
+        }
+
+        .stats-table td:first-child {
+            padding-left: 24px;
+        }
+
+        .stats-table td:last-child {
+            padding-right: 24px;
+        }
+
+        /* Hanya garis horizontal, tidak ada garis vertikal */
+        .stats-table th,
+        .stats-table td {
+            border-left: none;
+            border-right: none;
+        }
+
+        .stats-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .stats-table tbody tr:hover {
+            background-color: #f9fafb;
+        }
+
+        .activity-name-cell {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 500;
+        }
+
+        .activity-color-indicator {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            flex-shrink: 0;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        .activity-time {
+            font-weight: 600;
+            color: #111827;
+            font-size: 0.95rem;
+        }
+
+        .activity-percentage {
+            color: #6b7280;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        /* PERUBAHAN: Warna biru untuk semua kolom di baris Total */
+        .stats-table .average-row td,
+        .stats-table .average-row .activity-time,
+        .stats-table .average-row .activity-percentage {
+            color: #1e40af !important;
+            font-weight: 600;
+        }
+
+        .average-row {
+            background-color: #f8fafc !important;
+            font-weight: 600;
+        }
+
+        .average-row td {
+            border-top: 2px solid #e5e7eb !important;
+            border-bottom: none !important;
+            padding-top: 20px;
+            padding-bottom: 20px;
+        }
+
+        .average-row .activity-time {
+            color: #1e40af;
+            font-weight: 700;
+        }
+
+        /* Popup Toolbar */
+        .popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .popup-toolbar {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            animation: slideUp 0.3s ease;
+        }
+
+        .popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .popup-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        /* PERBAIKAN: Tombol close popup yang lebih estetik dalam bentuk LINGKARAN */
+        .close-popup {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border: 1px solid #cbd5e1;
+            color: #64748b;
+            cursor: pointer;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%; /* Bentuk lingkaran sempurna */
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 0;
+            position: relative;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            font-size: 0; /* Sembunyikan teks jika ada */
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .close-popup svg {
+            width: 20px;
+            height: 20px;
+            stroke: currentColor;
+            stroke-width: 2.5;
+            transition: all 0.3s;
+        }
+
+        .close-popup:hover {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            border-color: #dc2626;
+            color: white;
+            transform: translateY(-2px) rotate(90deg);
+            box-shadow: 0 10px 20px rgba(239, 68, 68, 0.2);
+        }
+
+        .close-popup:active {
+            transform: translateY(0) rotate(90deg) scale(0.95);
+            box-shadow: 0 2px 5px rgba(239, 68, 68, 0.2);
+        }
+
+        /* Efek glow ring pada hover */
+        .close-popup::after {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            border-radius: 50%; /* Bentuk lingkaran untuk glow */
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .close-popup:hover::after {
+            opacity: 0.4;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.4; }
+            50% { opacity: 0.6; }
+            100% { opacity: 0.4; }
+        }
+
+        /* Efek ripple saat diklik */
+        .close-popup::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.3s, height 0.3s;
+        }
+
+        .close-popup:active::before {
+            width: 100%;
+            height: 100%;
+            transition: width 0s, height 0s;
+        }
+
+        /* Tab di dalam popup */
+        .popup-tabs {
+            display: flex;
+            gap: 1px;
+            background: #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .popup-tab-btn {
+            flex: 1;
+            padding: 12px 0;
+            background: white;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .popup-tab-btn.active {
+            background: #1f2937;
+            color: white;
+        }
+
+        .popup-tab-content {
+            min-height: 300px;
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        /* Tab Pilih Aktivitas */
+        .popup-tools-wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 25px;
+        }
+
+        .popup-tool-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            background-color: var(--color-white);
+            border: 1px solid var(--border-color);
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .popup-tool-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .popup-tool-btn.active {
+            border-color: #374151;
+            transform: scale(1.1);
+            box-shadow: 0 0 0 3px var(--bg-color), 0 0 0 5px #374151;
+        }
+
+        .popup-tool-label {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            color: #374151;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+
+        /* Tombol Hapus di dalam popup */
+        .popup-delete-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .popup-delete-btn:hover {
+            background: #fecaca;
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .popup-delete-btn.active {
+            background: #dc2626;
+            color: white;
+            border-color: #dc2626;
+            transform: scale(1.1);
+            box-shadow: 0 0 0 3px var(--bg-color), 0 0 0 5px #dc2626;
+        }
+
+        /* Tab Kelola Aktivitas */
+        .manage-tools-list {
+            max-height: 250px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            padding-right: 5px;
+        }
+
+        .manage-tools-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .manage-tools-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .manage-tools-list::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+
+        .tool-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: #f9fafb;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            transition: all 0.2s;
+        }
+
+        .tool-item:hover {
+            background: #f3f4f6;
+        }
+
+        .tool-color-display {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            margin-right: 12px;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .tool-name {
+            flex: 1;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .tool-default-badge {
+            background: #dbeafe;
+            color: #1e40af;
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-right: 10px;
+            font-weight: 600;
+        }
+
+        .tool-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .tool-action-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            border: none;
+            background: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            border: 1px solid #e5e7eb;
+        }
+
+        .tool-action-btn:hover {
+            background: #f3f4f6;
+            transform: translateY(-1px);
+        }
+
+        .edit-btn:hover {
+            background: #dbeafe;
+            border-color: #3b82f6;
+        }
+
+        .delete-btn:hover {
+            background: #fee2e2;
+            border-color: #fecaca;
+            color: #dc2626;
+        }
+
+        /* Form Edit Tool */
+        .edit-tool-form {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: #f0f9ff;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #bae6fd;
+        }
+
+        .edit-color-input {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: none;
+            margin-right: 12px;
+        }
+
+        .edit-name-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #93c5fd;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            outline: none;
+            margin-right: 12px;
+        }
+
+        .edit-name-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+
+        .edit-form-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .save-btn, .cancel-btn {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .save-btn {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .save-btn:hover {
+            background: #2563eb;
+        }
+
+        .cancel-btn {
+            background: #f3f4f6;
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+
+        .cancel-btn:hover {
+            background: #e5e7eb;
+        }
+
+        /* Form Tambah Aktivitas */
+        .popup-custom-creator {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .popup-custom-input {
+            padding: 10px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            outline: none;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .popup-custom-input:focus {
+            border-color: #3b82f6;
+        }
+
+        .popup-color-input {
+            width: 50px;
+            height: 50px;
+            padding: 0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: none;
+        }
+
+        .popup-btn-add {
+            padding: 10px 20px;
+            background: #1f2937;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .popup-btn-add:hover {
+            background: #374151;
+            transform: translateY(-1px);
+        }
+
+        /* Floating Action Button Container - DIKIRI */
+        .fab-container {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 10px;
+            z-index: 100;
+        }
+
+        /* Container untuk Lock Button dan FAB dalam satu kolom */
+        .fab-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+        }
+
+        /* Tombol Gembok (Lock Button) - DIBUAT LEBIH KECIL DARI FAB */
+        .lock-btn {
+            width: 44px; /* Lebih kecil dari FAB */
+            height: 44px;
+            background: #f8fafc;
+            color: #94a3b8;
+            border: 1px solid #cbd5e1;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s;
+            font-size: 1.1rem;
+            z-index: 102;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .lock-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .lock-btn.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #2563eb;
+        }
+
+        /* Floating Action Button */
+        .fab {
+            width: 60px;
+            height: 60px;
+            background: #1f2937;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s;
+            border: none;
+            font-size: 1.5rem;
+            z-index: 101;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .fab:hover {
+            background: #374151;
+            transform: scale(1.1);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Container untuk tombol Log di pojok kanan bawah */
+        .log-fab-container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            z-index: 100;
+        }
+
+        /* Tombol Log di kanan bawah */
+        .log-btn {
+            width: 44px; /* Ukuran sama dengan lock button */
+            height: 44px;
+            background: #f8fafc;
+            color: #94a3b8;
+            border: 1px solid #cbd5e1;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s;
+            font-size: 1.3rem;
+            z-index: 102;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .log-btn:hover {
+            background: #3b82f6;
+            color: white;
+            border-color: #2563eb;
+            transform: scale(1.1);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Info lingkaran yang dipilih - DIPERBARUI DENGAN TOMBOL TAG */
+        .selection-info {
+            background: #3b82f6;
+            color: white;
+            padding: 15px 15px 15px 15px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            display: none;
+            animation: fadeIn 0.3s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            max-width: 220px; /* Diperbesar untuk tombol tag */
+            min-width: 180px;
+            text-align: left;
+            flex-direction: column;
+            gap: 8px;
+            position: relative;
+            z-index: 100;
+        }
+
+        .selection-info.show {
+            display: flex;
+        }
+
+        /* PERBAIKAN: Tombol close yang lebih estetik - DIPERBARUI */
+        .selection-info .close-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: normal;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            z-index: 110;
+            padding: 0;
+            line-height: 1;
+            opacity: 0.8;
+        }
+
+        .selection-info .close-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+            opacity: 1;
+        }
+
+        .selection-info .close-btn:active {
+            transform: scale(0.95);
+        }
+
+        .selection-count {
+            font-weight: 600;
+            font-size: 1.1rem;
+            line-height: 1.2;
+            margin-right: 30px; /* Untuk memberi ruang tombol close */
+        }
+
+        .selection-time {
+            font-size: 0.75rem;
+            opacity: 0.9;
+            line-height: 1.2;
+        }
+
+        /* Tambahan untuk informasi aktivitas */
+        .selection-activity {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            margin-top: 2px;
+            padding-top: 6px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .selection-activity-icon {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            flex-shrink: 0;
+        }
+
+        .selection-activity-name {
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 160px;
+        }
+
+        /* Container untuk tombol tag */
+        .selection-tags {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* PERBAIKAN: Tombol tag yang lebih estetik dengan ikon tepat di tengah */
+        .tag-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            position: relative;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            line-height: 1; /* Menambahkan line-height untuk konsistensi */
+        }
+
+        /* PERBAIKAN: Kontainer untuk ikon di dalam tombol tag */
+        .tag-btn span {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            line-height: 1;
+            margin-top: -1px; /* Koreksi posisi vertikal untuk emoji */
+        }
+
+        /* PERBAIKAN Khusus untuk ikon emoji yang memerlukan penyesuaian posisi */
+        .tag-btn[data-tag-id="drink"] span {
+            margin-top: -2px; /* Koreksi tambahan untuk ikon lingkaran biru */
+            font-size: 1.3em; /* Sedikit lebih besar untuk visibilitas lebih baik */
+        }
+
+        .tag-btn[data-tag-id="food"] span {
+            margin-top: -1px; /* Koreksi untuk ikon sandwich */
+        }
+
+        .tag-btn[data-tag-id="check"] span {
+            margin-top: 0; /* Ikon centang sudah baik posisinya */
+        }
+
+        /* DITAMBAH: Koreksi untuk ikon kacang tanah */
+        .tag-btn[data-tag-id="peanut"] span {
+            margin-top: -1px; /* Koreksi untuk ikon kacang tanah */
+            font-size: 1.2em; /* Sedikit lebih besar */
+        }
+
+        .tag-btn:hover {
+            transform: scale(1.15);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .tag-btn.active {
+            border-color: white;
+            transform: scale(1.1);
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+        }
+
+        /* PERBAIKAN: Tombol hapus tag yang lebih estetik */
+        .tag-btn.remove-tag {
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+            border: 2px solid #d1d5db;
+            color: #6b7280;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+
+        .tag-btn.remove-tag svg {
+            stroke: currentColor;
+            width: 16px;
+            height: 16px;
+        }
+
+        .tag-btn.remove-tag:hover {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            border-color: #fca5a5;
+            color: #dc2626;
+            transform: scale(1.15);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .tag-btn.remove-tag.active {
+            background: #dc2626;
+            border-color: #dc2626;
+            color: white;
+            transform: scale(1.1);
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+        }
+
+        /* Tooltip untuk tombol tag */
+        .tag-tooltip {
+            position: absolute;
+            bottom: 120%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            font-size: 10px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+            display: none;
+            pointer-events: none;
+            z-index: 25;
+        }
+
+        .tag-btn:hover .tag-tooltip {
+            display: block;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1f2937;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-size: 0.9rem;
+            z-index: 2000;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+            display: none;
+            animation: slideUpToast 0.3s ease;
+            max-width: 90%;
+            text-align: center;
+        }
+
+        @keyframes slideUpToast {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { 
+                opacity: 0;
+                transform: translateY(20px); 
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0); 
+            }
+        }
+
+        /* ============================== */
+        /* STYLES UNTUK LOG CONTAINER */
+        /* ============================== */
+
+        /* Log Container */
+        .log-container {
+            position: fixed;
+            bottom: 100px;
+            right: 30px; /* Diubah dari left: 30px ke right: 30px */
+            width: 500px;
+            height: 400px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .log-container.show {
+            display: flex;
+            animation: slideInLog 0.3s ease;
+        }
+
+        @keyframes slideInLog {
+            from {
+                opacity: 0;
+                transform: translateY(20px) translateX(0);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) translateX(0);
+            }
+        }
+
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: #1f2937;
+            color: white;
+            border-bottom: 1px solid #374151;
+        }
+
+        .log-title {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        /* TAMBAHAN: Tombol close estetik untuk log header */
+        .log-close-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            padding: 0;
+            font-size: 14px;
+            line-height: 1;
+            flex-shrink: 0;
+            opacity: 0.8;
+        }
+
+        .log-close-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+            opacity: 1;
+        }
+
+        .log-close-btn:active {
+            transform: scale(0.95);
+        }
+
+        .log-close-btn svg {
+            width: 14px;
+            height: 14px;
+            stroke: currentColor;
+        }
+
+        .log-table-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+        }
+
+        .log-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+        }
+
+        .log-table thead {
+            background-color: #f9fafb;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .log-table th {
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #4b5563;
+            border-bottom: 2px solid #e5e7eb;
+            font-size: 0.7rem;
+            white-space: nowrap;
+        }
+
+        .log-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f3f4f6;
+            color: #374151;
+            vertical-align: top;
+        }
+
+        .log-table tbody tr:hover {
+            background-color: #f9fafb;
+        }
+
+        .log-table .log-time {
+            font-size: 0.7rem;
+            color: #6b7280;
+            white-space: nowrap;
+        }
+
+        .log-table .log-activity {
+            font-weight: 500;
+            max-width: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .log-table .log-action-add {
+            color: #10b981;
+            font-weight: 600;
+        }
+
+        .log-table .log-action-remove {
+            color: #ef4444;
+            font-weight: 600;
+        }
+
+        .log-footer {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 20px;
+            background: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .log-btn-footer {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            background: white;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .log-btn-footer:hover {
+            background: #f3f4f6;
+        }
+
+        .log-btn-footer:first-child {
+            background: #fee2e2;
+            border-color: #fecaca;
+            color: #dc2626;
+        }
+
+        .log-btn-footer:first-child:hover {
+            background: #fecaca;
+        }
+
+        @media (max-width: 768px) {
+            .log-container {
+                width: 90%;
+                height: 60%;
+                left: 5%;
+                right: 5%;
+                bottom: 80px;
+            }
+            
+            .log-table {
+                font-size: 0.7rem;
+            }
+            
+            .log-table th,
+            .log-table td {
+                padding: 6px 8px;
+            }
+            
+            .log-table th:nth-child(1),
+            .log-table td:nth-child(1) {
+                width: 80px;
+            }
+            
+            .log-table th:nth-child(2),
+            .log-table td:nth-child(2) {
+                width: 100px;
+            }
+            
+            .log-table th:nth-child(3),
+            .log-table td:nth-child(3),
+            .log-table th:nth-child(4),
+            .log-table td:nth-child(4) {
+                width: 60px;
+            }
+            
+            .log-table th:nth-child(5),
+            .log-table td:nth-child(5) {
+                width: 70px;
+            }
+            
+            .log-close-btn {
+                width: 26px;
+                height: 26px;
+                font-size: 13px;
+            }
+            
+            .log-close-btn svg {
+                width: 12px;
+                height: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .log-container {
+                height: 70%;
+                bottom: 70px;
+            }
+            
+            .log-close-btn {
+                width: 24px;
+                height: 24px;
+                font-size: 12px;
+            }
+        }
+
+        /* Responsif untuk log-fab-container */
+        @media (max-width: 600px) {
+            .log-fab-container {
+                bottom: 20px;
+                right: 20px;
+            }
+            
+            .log-btn {
+                width: 44px;
+                height: 44px;
+                font-size: 1.3rem;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .log-fab-container {
+                bottom: 15px;
+                right: 15px;
+            }
+            
+            .log-btn {
+                width: 40px;
+                height: 40px;
+                font-size: 1.2rem;
+            }
+        }
+
+        @media (max-width: 600px) {
+            :root { --circle-size: 22px; --gap-size: 4px; }
+            .hour-label { width: 40px; font-size: 0.75rem; }
+            .tab-btn { padding: 10px 0; font-size: 0.8rem; }
+            .stats-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .stats-controls { 
+                align-self: stretch; 
+                justify-content: space-between; 
+                gap: 4px;
+            }
+            .stats-btn {
+                padding: 5px 8px;
+                font-size: 0.7rem;
+            }
+            .popup-toolbar { width: 95%; padding: 15px; }
+            .popup-tool-btn, .popup-delete-btn { width: 45px; height: 45px; }
+            .popup-tool-label { font-size: 10px; bottom: -22px; }
+            .popup-custom-creator { flex-direction: column; }
+            .popup-custom-input { min-width: 100%; }
+            .edit-tool-form { flex-direction: column; align-items: stretch; gap: 10px; }
+            .edit-name-input { margin-right: 0; }
+            
+            /* Perbaikan padding untuk mobile */
+            body {
+                padding: 20px 20px 140px 20px; /* DITAMBAH PADDING BOTTOM 140px */
+            }
+            
+            /* FAB Container untuk mobile */
+            .fab-container {
+                bottom: 20px;
+                left: 20px;
+                gap: 8px;
+            }
+            .lock-btn {
+                width: 40px;
+                height: 40px;
+                font-size: 1rem;
+            }
+            .fab {
+                width: 50px;
+                height: 50px;
+                font-size: 1.3rem;
+            }
+            
+            /* Selection-info untuk mobile - DIPERBARUI */
+            .selection-info {
+                padding: 12px 12px 12px 12px;
+                font-size: 0.7rem;
+                border-radius: 18px;
+                max-width: 180px;
+                min-width: 150px;
+                gap: 4px;
+            }
+            
+            .selection-info .close-btn {
+                width: 20px;
+                height: 20px;
+                font-size: 12px;
+                top: 6px;
+                right: 6px;
+            }
+            
+            .selection-count {
+                font-size: 0.95rem;
+                margin-right: 25px;
+            }
+            .selection-time {
+                font-size: 0.65rem;
+            }
+            .selection-activity {
+                font-size: 0.65rem;
+                gap: 4px;
+            }
+            .selection-activity-icon {
+                width: 10px;
+                height: 10px;
+            }
+            .selection-activity-name {
+                max-width: 130px;
+            }
+            
+            /* Tombol tag untuk mobile */
+            .selection-tags {
+                gap: 6px;
+                margin-top: 6px;
+            }
+            
+            .tag-btn {
+                width: 28px;
+                height: 28px;
+                font-size: 12px;
+            }
+            
+            .tag-btn[data-tag-id="drink"] span {
+                margin-top: -1px; /* Koreksi untuk mobile */
+                font-size: 1.2em;
+            }
+            
+            .tag-btn[data-tag-id="food"] span {
+                margin-top: -1px;
+            }
+            
+            /* DITAMBAH: Koreksi untuk ikon kacang tanah di mobile */
+            .tag-btn[data-tag-id="peanut"] span {
+                margin-top: -1px; /* Koreksi untuk mobile */
+                font-size: 1.1em;
+            }
+            
+            .tag-btn.remove-tag svg {
+                width: 14px;
+                height: 14px;
+            }
+            
+            /* Status container untuk mobile */
+            .status-container {
+                font-size: 0.95rem; /* Sedikit lebih kecil untuk mobile */
+                flex-wrap: wrap;
+            }
+            
+            .status-left, .status-right {
+                flex: 0 0 50%;
+                text-align: left;
+            }
+            
+            .status-right {
+                text-align: right;
+                flex-wrap: wrap;
+                justify-content: flex-end;
+            }
+            
+            /* Tabel untuk mobile */
+            .stats-table {
+                font-size: 0.8rem;
+            }
+            
+            .stats-table th,
+            .stats-table td {
+                padding: 14px 16px;
+            }
+            
+            .stats-table th:first-child {
+                padding-left: 20px;
+            }
+            
+            .stats-table td:first-child {
+                padding-left: 20px;
+            }
+            
+            .stats-table th:last-child {
+                padding-right: 20px;
+            }
+            
+            .stats-table td:last-child {
+                padding-right: 20px;
+            }
+            
+            .activity-name-cell {
+                gap: 10px;
+            }
+            
+            .activity-color-indicator {
+                width: 14px;
+                height: 14px;
+            }
+            
+            .toast {
+                bottom: 80px;
+                padding: 10px 20px;
+                font-size: 0.85rem;
+            }
+            
+            /* Log container untuk mobile */
+            .log-container {
+                width: 90%;
+                height: 60%;
+                left: 5%;
+                right: 5%;
+                bottom: 70px;
+            }
+            
+            /* Responsif untuk tombol close popup */
+            .close-popup {
+                width: 40px;
+                height: 40px;
+            }
+            
+            .close-popup svg {
+                width: 18px;
+                height: 18px;
+            }
+        }
+
+        /* Untuk layar sangat kecil */
+        @media (max-width: 400px) {
+            .selection-info {
+                padding: 10px 10px 10px 10px;
+                max-width: 160px;
+                min-width: 140px;
+                gap: 3px;
+            }
+            
+            .selection-info .close-btn {
+                width: 18px;
+                height: 18px;
+                font-size: 11px;
+                top: 5px;
+                right: 5px;
+            }
+            
+            .selection-count {
+                font-size: 0.9rem;
+                margin-right: 22px;
+            }
+            .selection-time {
+                font-size: 0.6rem;
+            }
+            .selection-activity {
+                font-size: 0.6rem;
+                gap: 3px;
+            }
+            .selection-activity-name {
+                max-width: 110px;
+            }
+            
+            /* Tombol tag untuk layar sangat kecil */
+            .selection-tags {
+                gap: 4px;
+                margin-top: 5px;
+            }
+            
+            .tag-btn {
+                width: 24px;
+                height: 24px;
+                font-size: 11px;
+            }
+            
+            .tag-btn[data-tag-id="drink"] span {
+                margin-top: -1px; /* Koreksi untuk layar sangat kecil */
+                font-size: 1.1em;
+            }
+            
+            .tag-btn[data-tag-id="food"] span {
+                margin-top: 0;
+            }
+            
+            /* DITAMBAH: Koreksi untuk ikon kacang tanah di layar sangat kecil */
+            .tag-btn[data-tag-id="peanut"] span {
+                margin-top: 0; /* Koreksi untuk layar sangat kecil */
+                font-size: 1em;
+            }
+            
+            .tag-btn.remove-tag svg {
+                width: 12px;
+                height: 12px;
+            }
+            
+            /* Perbaikan padding untuk layar sangat kecil */
+            body {
+                padding: 20px 20px 130px 20px; /* DITAMBAH PADDING BOTTOM 130px */
+            }
+            
+            /* Status container untuk layar sangat kecil */
+            .status-container {
+                font-size: 0.85rem;
+            }
+            
+            /* Tabel untuk layar sangat kecil */
+            .stats-table {
+                font-size: 0.75rem;
+            }
+            
+            .stats-table th,
+            .stats-table td {
+                padding: 12px 14px;
+            }
+            
+            .stats-table th:first-child {
+                padding-left: 16px;
+            }
+            
+            .stats-table td:first-child {
+                padding-left: 16px;
+            }
+            
+            .stats-table th:last-child {
+                padding-right: 16px;
+            }
+            
+            .stats-table td:last-child {
+                padding-right: 16px;
+            }
+            
+            .activity-name-cell {
+                gap: 8px;
+            }
+            
+            .activity-color-indicator {
+                width: 12px;
+                height: 12px;
+            }
+            
+            .toast {
+                bottom: 70px;
+                padding: 8px 16px;
+                font-size: 0.8rem;
+            }
+            
+            /* Log container untuk layar sangat kecil */
+            .log-container {
+                height: 70%;
+                bottom: 60px;
+            }
+            
+            /* Responsif untuk tombol close popup */
+            .close-popup {
+                width: 36px;
+                height: 36px;
+            }
+            
+            .close-popup svg {
+                width: 16px;
+                height: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="date-navigator">
+            <button class="nav-btn" id="prevDay">&lt;</button>
+            <div class="current-date" id="dateDisplay">Memuat...</div>
+            <button class="nav-btn" id="nextDay">&gt;</button>
+        </div>
+        <h1>Time Blocker</h1>
+        <p class="subtitle">Tahan lalu drag untuk pilih lingkaran</p>
+    </header>
+
+    <div class="tab-navigation">
+        <button class="tab-btn active" data-tab="schedule">Jadwal</button>
+        <button class="tab-btn" data-tab="stats">Statistik</button>
+    </div>
+
+    <!-- Status Container - DIPERBARUI -->
+    <div class="status-container" id="statusContainer">
+        <div class="status-left">
+            <span id="levelText">Level 0</span>
+        </div>
+        <div class="status-right">
+            <span class="energy-label">Energi Mental</span>
+            <span id="energyPercentage" class="energy-percentage positive">100%</span>
+        </div>
+    </div>
+
+    <!-- Grid -->
+    <div class="schedule-grid" id="grid"></div>
+
+    <!-- Stats Container -->
+    <div class="stats-container" id="statsTab">
+        <div class="stats-header">
+            <div class="stats-title">Statistik Aktivitas</div>
+            <div class="stats-controls">
+                <button class="stats-btn active" data-period="7">7 Hari</button>
+                <button class="stats-btn" data-period="14">14 Hari</button>
+                <button class="stats-btn" data-period="30">30 Hari</button>
+                <button class="stats-btn" data-period="180">6 Bulan</button>
+                <button class="stats-btn" data-period="365">1 Tahun</button>
+                <button class="stats-btn" data-period="1825">5 Tahun</button>
+                <button class="stats-btn" data-period="3650">10 Tahun</button>
+                <button class="stats-btn" data-period="7300">20 Tahun</button>
+                <button class="stats-btn" id="exportBtn">Export Data</button>
+                <button class="stats-btn" id="importBtn">Import Data</button>
+                <button class="stats-btn warning" id="resetBtn">Reset Data</button>
+                <input type="file" id="importFileInput" accept=".json" style="display: none;">
+            </div>
+        </div>
+        <div class="chart-container">
+            <canvas id="statsChart"></canvas>
+        </div>
+        <!-- Daftar aktivitas berbentuk tabel -->
+        <div class="stats-summary" id="statsSummary"></div>
+    </div>
+
+    <!-- Popup Toolbar -->
+    <div class="popup-overlay" id="popupOverlay">
+        <div class="popup-toolbar">
+            <div class="popup-header">
+                <div class="popup-title">Aktivitas</div>
+                <button class="close-popup" id="closePopup" aria-label="Tutup popup">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M18 6L6 18M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Tab Navigation dalam Popup -->
+            <div class="popup-tabs">
+                <button class="popup-tab-btn active" data-panel="selectPanel">Pilih Aktivitas</button>
+                <button class="popup-tab-btn" data-panel="managePanel">Kelola Aktivitas</button>
+            </div>
+            
+            <div class="popup-tab-content">
+                <!-- Tab 1: Pilih Aktivitas -->
+                <div class="tab-panel active" id="selectPanel">
+                    <div class="popup-tools-wrapper" id="popupToolsContainer">
+                        <!-- Tools akan digenerate via JS -->
+                    </div>
+                </div>
+                
+                <!-- Tab 2: Kelola Aktivitas -->
+                <div class="tab-panel" id="managePanel">
+                    <div class="manage-tools-list" id="manageToolsList">
+                        <!-- Daftar aktivitas untuk dikelola akan digenerate via JS -->
+                    </div>
+                    
+                    <div class="popup-custom-creator">
+                        <input type="text" id="popupCustomName" class="popup-custom-input" placeholder="Nama Aktivitas Baru" maxlength="15">
+                        <input type="color" id="popupCustomColor" class="popup-color-input" value="#ff0000">
+                        <button class="popup-btn-add" id="popupAddToolBtn">Tambah Aktivitas</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Floating Action Button Container -->
+    <div class="fab-container">
+        <!-- Container untuk Lock Button dan FAB dalam satu kolom -->
+        <div class="fab-column">
+            <!-- Tombol Gembok untuk Mode Scroll Only - DIATAS FAB DENGAN PUSAT YANG SAMA -->
+            <button class="lock-btn" id="lockBtn" title="Mode Scroll Only">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+                </svg>
+            </button>
+            
+            <!-- Floating Action Button -->
+            <button class="fab" id="fabBtn">+</button>
+        </div>
+        
+        <!-- Info lingkaran yang dipilih - DIPERBARUI DENGAN TOMBOL TAG -->
+        <div class="selection-info" id="selectionInfo">
+            <button class="close-btn" id="clearSelectionBtn">×</button>
+            <div class="selection-count">
+                <span id="selectedCount">0</span> lingkaran
+            </div>
+            <div class="selection-time">
+                <span id="selectedTime">0 menit</span>
+            </div>
+            <div class="selection-activity">
+                <div class="selection-activity-icon" id="selectionActivityIcon"></div>
+                <div class="selection-activity-name" id="selectionActivityName">-</div>
+            </div>
+            
+            <!-- Container untuk tombol tag -->
+            <div class="selection-tags" id="selectionTags">
+                <!-- Tombol tag akan ditambahkan via JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Tombol Log di pojok kanan bawah -->
+    <div class="log-fab-container" id="logFabContainer">
+        <button class="log-btn" id="logFabBtn" title="Log Aktivitas">📋</button>
+    </div>
+
+    <!-- Log Container -->
+    <div class="log-container" id="logContainer">
+        <div class="log-header">
+            <div class="log-title">Log Aktivitas</div>
+            <button class="log-close-btn" id="logCloseBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div class="log-table-container">
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th>Waktu</th>
+                        <th>Aktivitas</th>
+                        <th>Mulai</th>
+                        <th>Selesai</th>
+                        <th>Tindakan</th>
+                    </tr>
+                </thead>
+                <tbody id="logTableBody">
+                    <!-- Log entries will be inserted here -->
+                </tbody>
+            </table>
+        </div>
+        <div class="log-footer">
+            <button class="log-btn-footer" id="clearLogBtn">Hapus Log Hari Ini</button>
+            <button class="log-btn-footer" id="closeLogBtn">Tutup</button>
+        </div>
+    </div>
+
+    <script>
+        const gridContainer = document.getElementById('grid');
+        const dateDisplay = document.getElementById('dateDisplay');
+        const scheduleTab = document.getElementById('scheduleTab');
+        const statsTab = document.getElementById('statsTab');
+        const tabButtons = document.querySelectorAll('.tab-btn');
+        const statsButtons = document.querySelectorAll('.stats-btn');
+        const popupOverlay = document.getElementById('popupOverlay');
+        const popupToolsContainer = document.getElementById('popupToolsContainer');
+        const closePopupBtn = document.getElementById('closePopup');
+        const fabBtn = document.getElementById('fabBtn');
+        const popupAddToolBtn = document.getElementById('popupAddToolBtn');
+        const popupCustomName = document.getElementById('popupCustomName');
+        const popupCustomColor = document.getElementById('popupCustomColor');
+        const selectionInfo = document.getElementById('selectionInfo');
+        const selectedCount = document.getElementById('selectedCount');
+        const selectedTime = document.getElementById('selectedTime');
+        const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+        const manageToolsList = document.getElementById('manageToolsList');
+        const popupTabButtons = document.querySelectorAll('.popup-tab-btn');
+        const tabPanels = document.querySelectorAll('.tab-panel');
+        const statusContainer = document.getElementById('statusContainer');
+        
+        // Element baru untuk export/import
+        const exportBtn = document.getElementById('exportBtn');
+        const importBtn = document.getElementById('importBtn');
+        const importFileInput = document.getElementById('importFileInput');
+        const resetBtn = document.getElementById('resetBtn');
+        
+        // Tombol gembok baru
+        const lockBtn = document.getElementById('lockBtn');
+        
+        // Tombol log - DIKANAN BAWAH (container baru)
+        const logFabBtn = document.getElementById('logFabBtn');
+        
+        // Element untuk status level dan energi mental
+        const levelText = document.getElementById('levelText');
+        const energyPercentage = document.getElementById('energyPercentage');
+        
+        // Element baru untuk informasi aktivitas di selection info
+        const selectionActivityIcon = document.getElementById('selectionActivityIcon');
+        const selectionActivityName = document.getElementById('selectionActivityName');
+        
+        // Element untuk toast notification
+        const toast = document.getElementById('toast');
+        
+        // Element untuk tombol tag
+        const selectionTags = document.getElementById('selectionTags');
+        
+        // Variabel untuk log
+        let logContainer = document.getElementById('logContainer');
+        let clearLogBtn = document.getElementById('clearLogBtn');
+        let closeLogBtn = document.getElementById('closeLogBtn');
+        let logTableBody = document.getElementById('logTableBody');
+        let logCloseBtn = document.getElementById('logCloseBtn'); // TAMBAHAN: Tombol close log
+        
+        let currentDate = new Date();
+        let activeToolId = 'work';
+        let isDragging = false;
+        let dragStartCircle = null;
+        let dragCurrentCircle = null;
+        let dragSelectedSet = new Set(); // Set untuk menyimpan lingkaran yang dipilih selama drag
+        let selectedCircles = new Set(); // Set untuk menyimpan lingkaran yang dipilih
+        let statsChart = null;
+        let chartPeriod = 7; // Default 7 hari
+        let editingToolId = null; // Tool yang sedang diedit
+        
+        // Variabel untuk deteksi seleksi cepat
+        let selectionStartTime = 0;
+        let isFastSelection = false;
+        
+        // Variabel untuk mode scroll only
+        let isScrollOnlyMode = false;
+        
+        // Variabel untuk melacak lingkaran terakhir yang dipilih
+        let lastSelectedCircle = null;
+
+        // Mapping CSS variables to actual colors
+        const cssVarToColor = {
+            'var(--color-work)': '#3b82f6',
+            'var(--color-meeting)': '#8b5cf6',
+            'var(--color-break)': '#10b981',
+            'var(--color-exercise)': '#f59e0b',
+            'var(--color-personal)': '#ec4899'
+        };
+
+        // Fungsi untuk mengonversi CSS variable ke warna hex
+        function resolveColor(color) {
+            if (color.startsWith('var(')) {
+                const cssVar = color.trim();
+                return cssVarToColor[cssVar] || '#cccccc';
+            }
+            return color;
+        }
+
+        const defaultTools = [
+            { id: 'work', name: 'Kerja', color: 'var(--color-work)', hexColor: '#3b82f6', isDefault: true },
+            { id: 'meeting', name: 'Meeting', color: 'var(--color-meeting)', hexColor: '#8b5cf6', isDefault: true },
+            { id: 'break', name: 'Istirahat', color: 'var(--color-break)', hexColor: '#10b981', isDefault: true },
+            { id: 'exercise', name: 'Olahraga', color: 'var(--color-exercise)', hexColor: '#f59e0b', isDefault: true },
+            { id: 'personal', name: 'Pribadi', color: 'var(--color-personal)', hexColor: '#ec4899', isDefault: true }
+        ];
+
+        // PERUBAHAN: Definisi tag/ikon yang tersedia - DITAMBAH tag "peanut" (kacang tanah) dengan warna ungu (#a855f7)
+        // PERUBAHAN: Urutan diubah sehingga kacang tanah berada di sebelah kiri proyek selesai
+        const availableTags = [
+            { id: 'peanut', name: 'Kacang Tanah', color: '#a855f7', icon: '🥜' }, // DIPERBARUI: Pindah ke posisi pertama
+            { id: 'check', name: 'Proyek Selesai', color: '#22c55e', icon: '✓' }, // Pindah ke posisi kedua
+            { id: 'food', name: 'Makan', color: '#f97316', icon: '🥪' },
+            { id: 'drink', name: 'Minum', color: '#0ea5e9', icon: '' } // Ikon dikosongkan
+        ];
+
+        // Menyimpan aktivitas default yang disembunyikan
+        let hiddenDefaultTools = JSON.parse(localStorage.getItem('tb_hidden_default_tools')) || [];
+
+        // Load status mode scroll only dari localStorage
+        let savedScrollOnlyMode = localStorage.getItem('tb_scroll_only_mode');
+        if (savedScrollOnlyMode !== null) {
+            isScrollOnlyMode = savedScrollOnlyMode === 'true';
+        }
+
+        function saveHiddenDefaultTools() {
+            localStorage.setItem('tb_hidden_default_tools', JSON.stringify(hiddenDefaultTools));
+        }
+
+        function saveScrollOnlyMode() {
+            localStorage.setItem('tb_scroll_only_mode', isScrollOnlyMode.toString());
+        }
+
+        // ==============================
+        // FUNGSI TOAST NOTIFICATION
+        // ==============================
+
+        function showToast(message, duration = 3000) {
+            toast.textContent = message;
+            toast.style.display = 'block';
+            
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, duration);
+        }
+
+        // ==============================
+        // PERBAIKAN: FUNGSI TANGGAL YANG BENAR
+        // ==============================
+
+        // PERBAIKAN: Fungsi untuk mendapatkan kunci penyimpanan dengan tanggal lokal
+        function getStorageKey(date = null) {
+            const targetDate = date || currentDate;
+            
+            // Gunakan tanggal lokal, bukan UTC
+            const year = targetDate.getFullYear();
+            const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+            const day = String(targetDate.getDate()).padStart(2, '0');
+            
+            return `tb_schedule_${year}-${month}-${day}`;
+        }
+
+        // PERBAIKAN: Fungsi untuk mendapatkan kunci untuk data tag
+        function getTagsStorageKey(date = null) {
+            const targetDate = date || currentDate;
+            
+            // Gunakan tanggal lokal, bukan UTC
+            const year = targetDate.getFullYear();
+            const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+            const day = String(targetDate.getDate()).padStart(2, '0');
+            
+            return `tb_tags_${year}-${month}-${day}`;
+        }
+
+        // PERBAIKAN: Fungsi untuk mendapatkan kunci penyimpanan log
+        function getLogStorageKey(date = null) {
+            const targetDate = date || currentDate;
+            const year = targetDate.getFullYear();
+            const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+            const day = String(targetDate.getDate()).padStart(2, '0');
+            return `tb_log_${year}-${month}-${day}`;
+        }
+
+        // PERBAIKAN: Fungsi untuk membandingkan tanggal (hanya tanggal, tanpa waktu)
+        function isToday(date) {
+            const today = new Date();
+            return date.getDate() === today.getDate() &&
+                   date.getMonth() === today.getMonth() &&
+                   date.getFullYear() === today.getFullYear();
+        }
+
+        function isPastDate(date) {
+            const today = new Date();
+            const compareDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+            const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            return compareDate < todayMidnight;
+        }
+
+        // ==============================
+        // FUNGSI UTAMA
+        // ==============================
+
+        function getTools() {
+            const savedCustom = JSON.parse(localStorage.getItem('tb_custom_tools')) || [];
+            // Tambahkan hexColor untuk custom tools
+            const customWithHex = savedCustom.map(tool => ({
+                ...tool,
+                hexColor: resolveColor(tool.color),
+                isDefault: false
+            }));
+            
+            // Filter default tools yang tidak disembunyikan
+            const visibleDefaultTools = defaultTools.filter(tool => !hiddenDefaultTools.includes(tool.id));
+            
+            return [...visibleDefaultTools, ...customWithHex];
+        }
+
+        function saveCustomTool(tool) {
+            let savedCustom = JSON.parse(localStorage.getItem('tb_custom_tools')) || [];
+            if (!savedCustom.find(t => t.id === tool.id)) {
+                savedCustom.push(tool);
+                localStorage.setItem('tb_custom_tools', JSON.stringify(savedCustom));
+                renderPopupTools();
+                renderManageTools();
+                updateStatistics(); // Update statistik saat alat baru ditambahkan
+            }
+        }
+
+        function updateCustomTool(toolId, updates) {
+            let savedCustom = JSON.parse(localStorage.getItem('tb_custom_tools')) || [];
+            const toolIndex = savedCustom.findIndex(t => t.id === toolId);
+            
+            if (toolIndex !== -1) {
+                savedCustom[toolIndex] = { ...savedCustom[toolIndex], ...updates };
+                localStorage.setItem('tb_custom_tools', JSON.stringify(savedCustom));
+                renderPopupTools();
+                renderManageTools();
+                updateStatistics();
+                
+                // Update juga data jadwal yang menggunakan tool ini
+                updateScheduleWithNewToolData(toolId, updates);
+                
+                return true;
+            }
+            return false;
+        }
+
+        function deleteCustomTool(toolId) {
+            let savedCustom = JSON.parse(localStorage.getItem('tb_custom_tools')) || [];
+            const toolIndex = savedCustom.findIndex(t => t.id === toolId);
+            
+            if (toolIndex !== -1) {
+                savedCustom.splice(toolIndex, 1);
+                localStorage.setItem('tb_custom_tools', JSON.stringify(savedCustom));
+                renderPopupTools();
+                renderManageTools();
+                updateStatistics();
+                
+                // Jika tool yang dihapus adalah tool aktif, ganti dengan default
+                if (activeToolId === toolId) {
+                    activeToolId = 'work';
+                }
+                
+                return true;
+            }
+            return false;
+        }
+
+        function updateScheduleWithNewToolData(toolId, updates) {
+            // Update semua jadwal yang menggunakan tool ini
+            const tools = getTools();
+            const allCircles = document.querySelectorAll('.circle');
+            
+            allCircles.forEach(circle => {
+                if (circle.dataset.toolId === toolId) {
+                    const tooltipName = circle.querySelector('.tooltip-name');
+                    
+                    if (updates.name && tooltipName) {
+                        tooltipName.textContent = updates.name;
+                    }
+                    
+                    if (updates.color || updates.hexColor) {
+                        const color = updates.hexColor || resolveColor(updates.color);
+                        if (circle.classList.contains('past')) {
+                            // Jika masa lalu, update background color
+                            circle.style.backgroundColor = color;
+                        } else {
+                            // Jika masa depan, update border color
+                            circle.style.border = `3px solid ${color}`;
+                        }
+                    }
+                }
+            });
+            
+            // Update juga data di localStorage
+            const dayData = getDayData();
+            const updatedDayData = dayData.map(item => {
+                if (item.toolId === toolId) {
+                    return { ...item };
+                }
+                return item;
+            });
+            saveDayData(updatedDayData);
+        }
+
+        // PERBAIKAN: getDayData menggunakan getStorageKey yang sudah diperbaiki
+        function getDayData(date = null) {
+            return JSON.parse(localStorage.getItem(getStorageKey(date))) || [];
+        }
+
+        // PERBAIKAN: saveDayData menggunakan getStorageKey yang sudah diperbaiki
+        function saveDayData(data) {
+            localStorage.setItem(getStorageKey(), JSON.stringify(data));
+            updateStatistics(); // Update statistik saat data berubah
+            updateStatus(); // Update status saat data berubah
+        }
+
+        // ==============================
+        // FUNGSI LOG AKTIVITAS
+        // ==============================
+
+        // Fungsi untuk memuat log
+        function loadLogData(date = null) {
+            return JSON.parse(localStorage.getItem(getLogStorageKey(date))) || [];
+        }
+
+        // Fungsi untuk menyimpan log
+        function saveLogData(logData, date = null) {
+            localStorage.setItem(getLogStorageKey(date), JSON.stringify(logData));
+        }
+
+        // Fungsi untuk menambahkan entri log
+        function addLogEntry(circles, action, toolId = null) {
+            // Hanya log untuk hari ini
+            if (!isToday(currentDate)) return;
+            
+            const logData = loadLogData();
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('id-ID', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            
+            // Dapatkan informasi aktivitas
+            let activityName = '-';
+            if (toolId) {
+                const tools = getTools();
+                const tool = tools.find(t => t.id === toolId) || 
+                             defaultTools.find(t => t.id === toolId);
+                if (tool) {
+                    activityName = tool.name;
+                }
+            } else if (action === 'remove') {
+                // Untuk hapus, cari aktivitas sebelumnya dari lingkaran pertama
+                const firstCircle = Array.from(circles)[0];
+                if (firstCircle && firstCircle.dataset.toolId) {
+                    const tools = getTools();
+                    const tool = tools.find(t => t.id === firstCircle.dataset.toolId) ||
+                                 defaultTools.find(t => t.id === firstCircle.dataset.toolId);
+                    if (tool) {
+                        activityName = tool.name;
+                    }
+                }
+            }
+            
+            // Konversi circles ke array dan urutkan berdasarkan waktu
+            const sortedCircles = Array.from(circles).sort((a, b) => {
+                return parseInt(a.dataset.time) - parseInt(b.dataset.time);
+            });
+            
+            // Buat grup berurutan untuk mengelompokkan lingkaran yang berdekatan
+            const groups = [];
+            let currentGroup = [];
+            
+            sortedCircles.forEach((circle, index) => {
+                const circleTime = parseInt(circle.dataset.time);
+                
+                if (currentGroup.length === 0) {
+                    currentGroup.push(circleTime);
+                } else {
+                    const lastTime = currentGroup[currentGroup.length - 1];
+                    // Jika selisih 5 menit (berdekatan), tambahkan ke grup yang sama
+                    if (circleTime - lastTime === 5) {
+                        currentGroup.push(circleTime);
+                    } else {
+                        // Jika tidak berdekatan, simpan grup lama dan mulai grup baru
+                        groups.push([...currentGroup]);
+                        currentGroup = [circleTime];
+                    }
+                }
+                
+                // Jika ini elemen terakhir, simpan grup terakhir
+                if (index === sortedCircles.length - 1) {
+                    groups.push(currentGroup);
+                }
+            });
+            
+            // Buat entri log untuk setiap grup
+            groups.forEach(group => {
+                const startTime = group[0];
+                const endTime = group[group.length - 1] + 5; // +5 menit untuk lingkaran terakhir
+                
+                const logEntry = {
+                    id: Date.now() + Math.random(), // ID unik
+                    timestamp: now.toISOString(),
+                    timeString: timeString,
+                    action: action, // 'add' atau 'remove'
+                    activity: activityName,
+                    startTime: startTime,
+                    endTime: endTime,
+                    duration: group.length * 5, // dalam menit
+                    circleCount: group.length
+                };
+                
+                logData.unshift(logEntry); // Tambahkan di awal agar terbaru di atas
+            });
+            
+            // Simpan log (maksimal 100 entri per hari)
+            if (logData.length > 100) {
+                logData.splice(100); // Hapus entri lama
+            }
+            
+            saveLogData(logData);
+            renderLogTable();
+        }
+
+        // Fungsi untuk merender tabel log
+        function renderLogTable() {
+            const logData = loadLogData();
+            
+            if (logData.length === 0) {
+                logTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 40px 20px; color: #6b7280;">
+                            Tidak ada log aktivitas untuk hari ini.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            let html = '';
+            logData.forEach(entry => {
+                const startTimeStr = minutesToTime(entry.startTime);
+                const endTimeStr = minutesToTime(entry.endTime);
+                const actionClass = entry.action === 'add' ? 'log-action-add' : 'log-action-remove';
+                const actionText = entry.action === 'add' ? 'Ditambahkan' : 'Dihapus';
+                
+                html += `
+                    <tr>
+                        <td class="log-time">${entry.timeString}</td>
+                        <td class="log-activity">${entry.activity}</td>
+                        <td>${startTimeStr}</td>
+                        <td>${endTimeStr}</td>
+                        <td class="${actionClass}">${actionText}</td>
+                    </tr>
+                `;
+            });
+            
+            logTableBody.innerHTML = html;
+        }
+
+        // Fungsi untuk menghapus log hari ini
+        function clearTodayLog() {
+            if (confirm('Hapus semua log aktivitas untuk hari ini?')) {
+                saveLogData([]);
+                renderLogTable();
+                showToast('Log hari ini telah dihapus');
+            }
+        }
+
+        // Fungsi untuk toggle tampilan log
+        function toggleLogContainer() {
+            logContainer.classList.toggle('show');
+            // Muat ulang log saat ditampilkan
+            if (logContainer.classList.contains('show')) {
+                renderLogTable();
+            }
+        }
+
+        // ==============================
+        // FUNGSI TAG/IKON
+        // ==============================
+
+        // Fungsi untuk mendapatkan data tag untuk hari ini
+        function getTagsData(date = null) {
+            return JSON.parse(localStorage.getItem(getTagsStorageKey(date))) || {};
+        }
+
+        // Fungsi untuk menyimpan data tag
+        function saveTagsData(tagsData) {
+            localStorage.setItem(getTagsStorageKey(), JSON.stringify(tagsData));
+        }
+
+        // Fungsi untuk menambahkan atau menghapus tag pada lingkaran
+        function toggleTagOnCircle(circle, tagId) {
+            const circleTime = parseInt(circle.dataset.time);
+            const tagsData = getTagsData();
+            
+            // Jika tag sudah ada, hapus. Jika belum, tambahkan.
+            if (tagsData[circleTime] === tagId) {
+                delete tagsData[circleTime];
+                // Hapus tag dari lingkaran
+                removeTagFromCircle(circle);
+            } else {
+                // Tambahkan tag baru (ganti jika sudah ada tag lain)
+                tagsData[circleTime] = tagId;
+                // Tambahkan tag ke lingkaran
+                addTagToCircle(circle, tagId);
+            }
+            
+            saveTagsData(tagsData);
+            updateSelectionTags(); // Update tombol tag di selection info
+        }
+
+        // Fungsi untuk menghapus tag dari lingkaran
+        function removeTagFromCircle(circle) {
+            const existingTag = circle.querySelector('.circle-tag');
+            if (existingTag) {
+                existingTag.remove();
+            }
+            delete circle.dataset.tagId;
+        }
+
+        // Fungsi untuk menambahkan tag ke lingkaran
+        function addTagToCircle(circle, tagId) {
+            // Hapus tag yang sudah ada
+            removeTagFromCircle(circle);
+            
+            // Cari data tag
+            const tag = availableTags.find(t => t.id === tagId);
+            if (!tag) return;
+            
+            // Buat elemen tag
+            const tagElement = document.createElement('div');
+            tagElement.className = `circle-tag tag-${tagId}`;
+            tagElement.textContent = tag.icon; // Akan kosong untuk tag drink
+            tagElement.title = tag.name;
+            
+            circle.appendChild(tagElement);
+            circle.dataset.tagId = tagId;
+        }
+
+        // Fungsi untuk memuat tag ke semua lingkaran
+        function loadTagsToGrid() {
+            const tagsData = getTagsData();
+            const circles = document.querySelectorAll('.circle');
+            
+            circles.forEach(circle => {
+                const circleTime = parseInt(circle.dataset.time);
+                if (tagsData[circleTime]) {
+                    addTagToCircle(circle, tagsData[circleTime]);
+                } else {
+                    removeTagFromCircle(circle);
+                }
+            });
+        }
+
+        // Fungsi untuk menghapus tag dari semua lingkaran yang dipilih
+        function removeTagsFromSelectedCircles() {
+            const circles = Array.from(selectedCircles);
+            const tagsData = getTagsData();
+            let updated = false;
+            
+            circles.forEach(circle => {
+                const circleTime = parseInt(circle.dataset.time);
+                if (tagsData[circleTime]) {
+                    delete tagsData[circleTime];
+                    removeTagFromCircle(circle);
+                    updated = true;
+                }
+            });
+            
+            if (updated) {
+                saveTagsData(tagsData);
+                updateSelectionTags(); // Update tombol tag di selection info
+                showToast('Tag dihapus dari lingkaran yang dipilih');
+            }
+        }
+
+        // Fungsi untuk menambahkan tag ke semua lingkaran yang dipilih
+        function addTagToSelectedCircles(tagId) {
+            const circles = Array.from(selectedCircles);
+            const tagsData = getTagsData();
+            let updated = false;
+            
+            circles.forEach(circle => {
+                const circleTime = parseInt(circle.dataset.time);
+                tagsData[circleTime] = tagId;
+                addTagToCircle(circle, tagId);
+                updated = true;
+            });
+            
+            if (updated) {
+                saveTagsData(tagsData);
+                updateSelectionTags(); // Update tombol tag di selection info
+                
+                // Tampilkan notifikasi
+                const tag = availableTags.find(t => t.id === tagId);
+                if (tag) {
+                    showToast(`Tag "${tag.name}" ditambahkan ke ${circles.length} lingkaran`);
+                }
+            }
+        }
+
+        // PERBAIKAN: Fungsi untuk membuat tombol tag di selection info
+        function renderSelectionTags() {
+            selectionTags.innerHTML = '';
+            
+            // Tambahkan tombol untuk setiap tag yang tersedia
+            availableTags.forEach(tag => {
+                const tagBtn = document.createElement('button');
+                tagBtn.className = 'tag-btn';
+                tagBtn.style.backgroundColor = tag.color;
+                tagBtn.dataset.tagId = tag.id;
+                
+                // Hanya tambahkan span dengan ikon jika ikon tidak kosong
+                if (tag.icon) {
+                    const iconSpan = document.createElement('span');
+                    iconSpan.textContent = tag.icon;
+                    tagBtn.appendChild(iconSpan);
+                }
+                
+                // Tooltip
+                const tooltip = document.createElement('div');
+                tooltip.className = 'tag-tooltip';
+                tooltip.textContent = tag.name;
+                tagBtn.appendChild(tooltip);
+                
+                // Event listener untuk menambahkan tag
+                tagBtn.addEventListener('click', () => {
+                    if (selectedCircles.size > 0) {
+                        addTagToSelectedCircles(tag.id);
+                    }
+                });
+                
+                selectionTags.appendChild(tagBtn);
+            });
+            
+            // PERBAIKAN: Tombol hapus tag yang lebih estetik
+            const removeTagBtn = document.createElement('button');
+            removeTagBtn.className = 'tag-btn remove-tag';
+            removeTagBtn.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+                </svg>
+            `;
+            
+            const removeTooltip = document.createElement('div');
+            removeTooltip.className = 'tag-tooltip';
+            removeTooltip.textContent = 'Hapus tag dari lingkaran terpilih';
+            removeTagBtn.appendChild(removeTooltip);
+            
+            removeTagBtn.addEventListener('click', () => {
+                if (selectedCircles.size > 0) {
+                    removeTagsFromSelectedCircles();
+                }
+            });
+            
+            selectionTags.appendChild(removeTagBtn);
+            
+            // Update status tombol tag
+            updateSelectionTags();
+        }
+
+        // Fungsi untuk mengupdate status tombol tag di selection info
+        function updateSelectionTags() {
+            if (selectedCircles.size === 0) return;
+            
+            const tagButtons = selectionTags.querySelectorAll('.tag-btn');
+            const circles = Array.from(selectedCircles);
+            
+            // Hitung berapa lingkaran yang memiliki setiap tag
+            const tagCounts = {};
+            availableTags.forEach(tag => {
+                tagCounts[tag.id] = 0;
+            });
+            
+            circles.forEach(circle => {
+                const tagId = circle.dataset.tagId;
+                if (tagId && tagCounts[tagId] !== undefined) {
+                    tagCounts[tagId]++;
+                }
+            });
+            
+            // Update status tombol tag
+            tagButtons.forEach(button => {
+                const tagId = button.dataset.tagId;
+                if (tagId) {
+                    // Jika semua lingkaran yang dipilih memiliki tag ini
+                    if (tagCounts[tagId] === circles.length && circles.length > 0) {
+                        button.classList.add('active');
+                    } else {
+                        button.classList.remove('active');
+                    }
+                }
+            });
+        }
+
+        function updateDateDisplay() {
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            dateDisplay.textContent = currentDate.toLocaleDateString('id-ID', options);
+        }
+
+        // ==============================
+        // STATUS FUNCTIONS - DIPERBARUI
+        // ==============================
+
+        // Fungsi untuk update status level dan energi mental
+        function updateStatus() {
+            const dayData = getDayData();
+            
+            // Hitung total menit SEMUA aktivitas
+            let totalMinutes = 0;
+            dayData.forEach(item => {
+                totalMinutes += 5; // Setiap lingkaran = 5 menit
+            });
+            
+            // Konversi ke jam
+            const totalHours = totalMinutes / 60;
+            
+            // Tentukan level
+            let level = 0;
+            let levelTextValue = "Level 0";
+            
+            if (totalHours >= 10) {
+                level = 6;
+                levelTextValue = "Level 6";
+            } else if (totalHours >= 8) {
+                level = 5;
+                levelTextValue = "Level 5";
+            } else if (totalHours >= 6) {
+                level = 4;
+                levelTextValue = "Level 4";
+            } else if (totalHours >= 4) {
+                level = 3;
+                levelTextValue = "Level 3";
+            } else if (totalHours >= 2) {
+                level = 2;
+                levelTextValue = "Level 2";
+            } else if (totalHours > 0) {
+                level = 1;
+                levelTextValue = "Level 1";
+            } else {
+                level = 0;
+                levelTextValue = "Level 0";
+            }
+            
+            // Hitung energi mental berdasarkan level
+            let energyPercentageValue = "";
+            let isNegative = false;
+            
+            switch(level) {
+                case 0:
+                    energyPercentageValue = "100%";
+                    isNegative = false;
+                    break;
+                case 1:
+                    energyPercentageValue = "-17%";
+                    isNegative = true;
+                    break;
+                case 2:
+                    energyPercentageValue = "-33%";
+                    isNegative = true;
+                    break;
+                case 3:
+                    energyPercentageValue = "-50%";
+                    isNegative = true;
+                    break;
+                case 4:
+                    energyPercentageValue = "-67%";
+                    isNegative = true;
+                    break;
+                case 5:
+                    energyPercentageValue = "-83%";
+                    isNegative = true;
+                    break;
+                case 6:
+                    energyPercentageValue = "-100%";
+                    isNegative = true;
+                    break;
+            }
+            
+            // Update tampilan status
+            levelText.textContent = levelTextValue;
+            energyPercentage.textContent = energyPercentageValue;
+            
+            // Atur warna berdasarkan positif/negatif
+            if (isNegative) {
+                energyPercentage.className = 'energy-percentage negative';
+            } else {
+                energyPercentage.className = 'energy-percentage positive';
+            }
+        }
+
+        // ==============================
+        // FUNGSI MODE SCROLL ONLY
+        // ==============================
+
+        // Fungsi untuk toggle mode scroll only
+        function toggleScrollOnlyMode() {
+            isScrollOnlyMode = !isScrollOnlyMode;
+            
+            // Update UI tombol gembok
+            if (isScrollOnlyMode) {
+                lockBtn.classList.add('active');
+            } else {
+                lockBtn.classList.remove('active');
+            }
+            
+            // Simpan preferensi ke localStorage
+            saveScrollOnlyMode();
+            
+            // Berikan feedback visual
+            showToast(isScrollOnlyMode ? 'Mode Scroll Only aktif' : 'Mode Scroll Only dimatikan');
+        }
+
+        // ==============================
+        // POPUP TOOLS FUNCTIONS
+        // ==============================
+
+        function renderPopupTools() {
+            popupToolsContainer.innerHTML = '';
+            const tools = getTools();
+            
+            // Tambahkan tool hapus
+            const deleteTool = {
+                id: 'eraser',
+                name: 'Hapus',
+                color: '#ffffff',
+                hexColor: '#ffffff',
+                isEraser: true,
+                isDefault: false
+            };
+            
+            const allTools = [...tools, deleteTool];
+            
+            allTools.forEach(tool => {
+                const toolBtn = document.createElement('button');
+                toolBtn.className = tool.isEraser ? 'popup-delete-btn' : 'popup-tool-btn';
+                toolBtn.dataset.id = tool.id;
+                
+                if (tool.isEraser) {
+                    // Tombol hapus
+                    toolBtn.innerHTML = `
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+                        </svg>
+                    `;
+                } else {
+                    // Tool aktivitas biasa
+                    const color = tool.hexColor || resolveColor(tool.color);
+                    toolBtn.innerHTML = `
+                        <div style="width: 70%; height: 70%; border-radius: 50%; background-color: ${color};"></div>
+                    `;
+                }
+                
+                // Label
+                const label = document.createElement('div');
+                label.className = 'popup-tool-label';
+                label.textContent = tool.name;
+                toolBtn.appendChild(label);
+                
+                // Status aktif
+                if (tool.id === activeToolId) {
+                    toolBtn.classList.add('active');
+                }
+                
+                // Event listener
+                toolBtn.addEventListener('click', () => {
+                    // Set tool aktif
+                    activeToolId = tool.id;
+                    
+                    // Update UI
+                    document.querySelectorAll('.popup-tool-btn, .popup-delete-btn').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    toolBtn.classList.add('active');
+                    
+                    // Terapkan ke semua lingkaran yang dipilih
+                    applyToolToSelectedCircles();
+                    
+                    // Tutup popup
+                    hidePopup();
+                });
+                
+                popupToolsContainer.appendChild(toolBtn);
+            });
+        }
+
+        function renderManageTools() {
+            manageToolsList.innerHTML = '';
+            const tools = getTools();
+            
+            tools.forEach(tool => {
+                if (tool.isDefault) {
+                    // Tool default (bisa dihapus)
+                    const toolItem = document.createElement('div');
+                    toolItem.className = 'tool-item';
+                    toolItem.innerHTML = `
+                        <div class="tool-color-display" style="background-color: ${tool.hexColor || resolveColor(tool.color)}"></div>
+                        <div class="tool-name">${tool.name}</div>
+                        <div class="tool-default-badge">Default</div>
+                        <div class="tool-actions">
+                            <button class="tool-action-btn delete-btn" data-tool-id="${tool.id}">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    `;
+                    manageToolsList.appendChild(toolItem);
+                    
+                    // Event listener untuk tombol hapus
+                    const deleteBtn = toolItem.querySelector('.delete-btn');
+                    deleteBtn.addEventListener('click', () => {
+                        if (isToolUsedInSchedule(tool.id)) {
+                            if (confirm('Aktivitas ini sedang digunakan di jadwal. Tetap hapus? (Lingkaran yang menggunakan aktivitas ini akan menjadi kosong)')) {
+                                // Hapus semua penggunaan tool ini dari jadwal
+                                removeToolFromSchedule(tool.id);
+                                // Sembunyikan tool default
+                                hideDefaultTool(tool.id);
+                            }
+                        } else {
+                            if (confirm(`Hapus aktivitas "${tool.name}" dari daftar?`)) {
+                                hideDefaultTool(tool.id);
+                            }
+                        }
+                    });
+                } else {
+                    // Tool custom
+                    if (editingToolId === tool.id) {
+                        // Mode edit
+                        const editForm = document.createElement('div');
+                        editForm.className = 'edit-tool-form';
+                        editForm.innerHTML = `
+                            <input type="color" class="edit-color-input" value="${tool.hexColor || resolveColor(tool.color)}">
+                            <input type="text" class="edit-name-input" value="${tool.name}" maxlength="15">
+                            <div class="edit-form-actions">
+                                <button class="save-btn" data-tool-id="${tool.id}">Simpan</button>
+                                <button class="cancel-btn" data-tool-id="${tool.id}">Batal</button>
+                            </div>
+                        `;
+                        manageToolsList.appendChild(editForm);
+                        
+                        // Event listeners untuk form edit
+                        const saveBtn = editForm.querySelector('.save-btn');
+                        const cancelBtn = editForm.querySelector('.cancel-btn');
+                        const nameInput = editForm.querySelector('.edit-name-input');
+                        const colorInput = editForm.querySelector('.edit-color-input');
+                        
+                        saveBtn.addEventListener('click', () => {
+                            const newName = nameInput.value.trim();
+                            const newColor = colorInput.value;
+                            
+                            if (!newName) {
+                                alert('Nama aktivitas tidak boleh kosong!');
+                                return;
+                            }
+                            
+                            updateCustomTool(tool.id, {
+                                name: newName,
+                                color: newColor,
+                                hexColor: newColor
+                            });
+                            
+                            editingToolId = null;
+                            renderManageTools();
+                        });
+                        
+                        cancelBtn.addEventListener('click', () => {
+                            editingToolId = null;
+                            renderManageTools();
+                        });
+                    } else {
+                        // Mode tampil
+                        const toolItem = document.createElement('div');
+                        toolItem.className = 'tool-item';
+                        toolItem.innerHTML = `
+                            <div class="tool-color-display" style="background-color: ${tool.hexColor || resolveColor(tool.color)}"></div>
+                            <div class="tool-name">${tool.name}</div>
+                            <div class="tool-actions">
+                                <button class="tool-action-btn edit-btn" data-tool-id="${tool.id}">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path>
+                                        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                    </svg>
+                                </button>
+                                <button class="tool-action-btn delete-btn" data-tool-id="${tool.id}">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        `;
+                        manageToolsList.appendChild(toolItem);
+                        
+                        // Event listeners untuk tombol edit dan hapus
+                        const editBtn = toolItem.querySelector('.edit-btn');
+                        const deleteBtn = toolItem.querySelector('.delete-btn');
+                        
+                        editBtn.addEventListener('click', () => {
+                            editingToolId = tool.id;
+                            renderManageTools();
+                        });
+                        
+                        deleteBtn.addEventListener('click', () => {
+                            if (confirm(`Hapus aktivitas "${tool.name}" dari daftar?`)) {
+                                // Cek apakah aktivitas ini sedang digunakan di jadwal
+                                if (isToolUsedInSchedule(tool.id)) {
+                                    if (confirm('Aktivitas ini sedang digunakan di jadwal. Tetap hapus? (Lingkaran yang menggunakan aktivitas ini akan menjadi kosong)')) {
+                                        // Hapus semua penggunaan tool ini dari jadwal
+                                        removeToolFromSchedule(tool.id);
+                                        deleteCustomTool(tool.id);
+                                    }
+                                } else {
+                                    deleteCustomTool(tool.id);
+                                }
+                            }
+                        });
+                    }
+                }
+            });
+            
+            // Tombol reset untuk aktivitas default
+            const resetDiv = document.createElement('div');
+            resetDiv.style.textAlign = 'center';
+            resetDiv.style.marginTop = '20px';
+            resetDiv.style.paddingTop = '20px';
+            resetDiv.style.borderTop = '1px solid #e5e7eb';
+            
+            if (hiddenDefaultTools.length > 0) {
+                const resetBtn = document.createElement('button');
+                resetBtn.className = 'popup-btn-add';
+                resetBtn.style.background = '#10b981';
+                resetBtn.textContent = `Kembalikan ${hiddenDefaultTools.length} Aktivitas Default`;
+                resetBtn.addEventListener('click', () => {
+                    if (confirm('Kembalikan semua aktivitas default yang dihapus?')) {
+                        hiddenDefaultTools = [];
+                        saveHiddenDefaultTools();
+                        renderPopupTools();
+                        renderManageTools();
+                        updateStatistics();
+                    }
+                });
+                resetDiv.appendChild(resetBtn);
+            } else {
+                const infoText = document.createElement('div');
+                infoText.style.color = '#6b7280';
+                infoText.style.fontSize = '0.85rem';
+                infoText.textContent = 'Semua aktivitas default tersedia.';
+                resetDiv.appendChild(infoText);
+            }
+            
+            manageToolsList.appendChild(resetDiv);
+        }
+
+        function hideDefaultTool(toolId) {
+            if (!hiddenDefaultTools.includes(toolId)) {
+                hiddenDefaultTools.push(toolId);
+                saveHiddenDefaultTools();
+                renderPopupTools();
+                renderManageTools();
+                updateStatistics();
+                
+                // Jika tool yang disembunyikan adalah tool aktif, ganti dengan default lain
+                if (activeToolId === toolId) {
+                    const visibleTools = getTools();
+                    if (visibleTools.length > 0) {
+                        activeToolId = visibleTools[0].id;
+                    }
+                }
+            }
+        }
+
+        function isToolUsedInSchedule(toolId) {
+            // Cek di jadwal hari ini
+            const dayData = getDayData();
+            return dayData.some(item => item.toolId === toolId);
+        }
+
+        function removeToolFromSchedule(toolId) {
+            // Hapus semua penggunaan tool dari jadwal hari ini
+            const dayData = getDayData();
+            const filteredDayData = dayData.filter(item => item.toolId !== toolId);
+            saveDayData(filteredDayData);
+            loadGridData();
+        }
+
+        function showPopup() {
+            popupOverlay.style.display = 'flex';
+            document.body.style.overflow = 'hidden'; // Mencegah scroll
+            // Set tab ke "Pilih Aktivitas" saat popup dibuka
+            switchPopupTab('selectPanel');
+        }
+
+        function hidePopup() {
+            popupOverlay.style.display = 'none';
+            document.body.style.overflow = ''; // Kembalikan scroll
+            clearSelection();
+            editingToolId = null; // Reset mode edit
+        }
+
+        function applyToolToSelectedCircles() {
+            const tools = getTools();
+            const tool = tools.find(t => t.id === activeToolId) || 
+                        (activeToolId === 'eraser' ? { isEraser: true } : null);
+            
+            // Simpan perubahan untuk log
+            const changes = [];
+            
+            // Loop melalui semua lingkaran yang dipilih
+            selectedCircles.forEach(circle => {
+                const oldToolId = circle.dataset.toolId; // Simpan toolId lama untuk log
+                
+                // SEMUA lingkaran bisa diedit, termasuk yang sudah lewat
+                
+                const tooltipName = circle.querySelector('.tooltip-name');
+                
+                if (!tool || tool.isEraser || activeToolId === 'eraser') {
+                    // Mode hapus: Reset ke default
+                    if (circle.classList.contains('past')) {
+                        // Jika masa lalu: reset ke abu-abu solid
+                        circle.style.backgroundColor = '';
+                        circle.style.border = '';
+                        circle.classList.remove('filled');
+                        delete circle.dataset.toolId;
+                        if(tooltipName) tooltipName.textContent = '-';
+                    } else {
+                        // Jika masa depan: reset ke putih dengan border tipis
+                        circle.style.backgroundColor = '#ffffff';
+                        circle.style.border = '1px solid #e5e7eb';
+                        circle.classList.remove('filled');
+                        delete circle.dataset.toolId;
+                        if(tooltipName) tooltipName.textContent = '-';
+                    }
+                    
+                    // Catat untuk log jika sebelumnya ada aktivitas
+                    if (oldToolId) {
+                        changes.push({ circle, oldToolId, newToolId: null });
+                    }
+                } else {
+                    // Mode normal
+                    const color = tool.hexColor || resolveColor(tool.color);
+                    if (circle.classList.contains('past')) {
+                        // Jika masa lalu: background solid dengan warna tool
+                        circle.style.backgroundColor = color;
+                        circle.style.border = 'none';
+                        circle.classList.add('filled');
+                        circle.dataset.toolId = tool.id;
+                        if(tooltipName) tooltipName.textContent = tool.name;
+                    } else {
+                        // Jika masa depan: putih dengan border warna tebal
+                        circle.style.backgroundColor = '#ffffff';
+                        circle.style.border = `3px solid ${color}`;
+                        circle.classList.add('filled');
+                        circle.dataset.toolId = tool.id;
+                        if(tooltipName) tooltipName.textContent = tool.name;
+                    }
+                    
+                    // Catat untuk log
+                    changes.push({ circle, oldToolId, newToolId: tool.id });
+                }
+            });
+            
+            saveGridState();
+            updateSelectionInfo();
+            
+            // Tambahkan log untuk perubahan
+            if (changes.length > 0 && isToday(currentDate)) {
+                // Kelompokkan perubahan berdasarkan aksi
+                const addCircles = changes.filter(c => c.newToolId).map(c => c.circle);
+                const removeCircles = changes.filter(c => !c.newToolId).map(c => c.circle);
+                
+                if (addCircles.length > 0) {
+                    addLogEntry(new Set(addCircles), 'add', activeToolId);
+                }
+                if (removeCircles.length > 0) {
+                    addLogEntry(new Set(removeCircles), 'remove');
+                }
+            }
+        }
+
+        function initGridStructure() {
+            gridContainer.innerHTML = '';
+            for (let hour = 0; hour < 24; hour++) {
+                const hourStr = hour.toString().padStart(2, '0');
+                const row = document.createElement('div');
+                row.className = 'hour-row';
+                
+                const label = document.createElement('div');
+                label.className = 'hour-label';
+                label.textContent = `${hourStr}`;
+                
+                const container = document.createElement('div');
+                container.className = 'circles-container';
+                
+                for (let min = 0; min < 12; min++) {
+                    const circle = document.createElement('div');
+                    circle.className = 'circle';
+                    
+                    const absoluteMinutes = (hour * 60) + (min * 5);
+                    circle.dataset.time = absoluteMinutes;
+                    
+                    const startMinStr = (min * 5).toString().padStart(2, '0');
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'time-tooltip';
+                    tooltip.innerHTML = `<strong>${hourStr}:${startMinStr}</strong><br><span class="tooltip-name">-</span>`;
+                    circle.appendChild(tooltip);
+
+                    container.appendChild(circle);
+                }
+                
+                row.appendChild(label);
+                row.appendChild(container);
+                gridContainer.appendChild(row);
+            }
+        }
+
+        // PERBAIKAN DI SINI: Fungsi loadGridData yang sudah diperbaiki
+        function loadGridData() {
+            const dayData = getDayData();
+            const tools = getTools();
+            const toolMap = {};
+            tools.forEach(t => toolMap[t.id] = t);
+
+            // Tentukan apakah ini hari kemarin atau sebelumnya
+            const isPastDateView = isPastDate(currentDate);
+            const isTodayView = isToday(currentDate);
+
+            // Reset semua lingkaran ke default
+            const circles = document.querySelectorAll('.circle');
+            circles.forEach(circle => {
+                // Reset style
+                circle.style.backgroundColor = '';
+                circle.style.border = '';
+                circle.classList.remove('filled', 'past', 'selected');
+                circle.dataset.toolId = '';
+                
+                const circleTime = parseInt(circle.dataset.time);
+                const tooltipName = circle.querySelector('.tooltip-name');
+                
+                const found = dayData.find(d => d.time === circleTime);
+                
+                if (found) {
+                    const tool = toolMap[found.toolId];
+                    if (tool) {
+                        const color = tool.hexColor || resolveColor(tool.color);
+                        
+                        // PERBAIKAN DISINI:
+                        // Jika ini hari kemarin atau sebelumnya (isPastDateView = true)
+                        // atau jika ini hari ini dan lingkaran sudah lewat
+                        // maka gunakan gaya SOLID BACKGROUND
+                        if (isPastDateView) {
+                            // Hari kemarin atau sebelumnya: background solid, tanpa border
+                            circle.style.backgroundColor = color;
+                            circle.style.border = 'none';
+                            circle.classList.add('past'); // Tambahkan class past
+                        } else if (isTodayView && isPastCircle(circleTime)) {
+                            // Hari ini dan lingkaran sudah lewat: background solid, tanpa border
+                            circle.style.backgroundColor = color;
+                            circle.style.border = 'none';
+                            circle.classList.add('past'); // Tambahkan class past
+                        } else {
+                            // Masa depan: putih dengan border tebal
+                            circle.style.backgroundColor = '#ffffff';
+                            circle.style.border = `3px solid ${color}`;
+                        }
+                        
+                        circle.classList.add('filled');
+                        circle.dataset.toolId = found.toolId;
+                        if(tooltipName) tooltipName.textContent = tool.name;
+                    }
+                } else {
+                    // Lingkaran tanpa aktivitas
+                    if(tooltipName) tooltipName.textContent = '-';
+                    
+                    // Untuk lingkaran masa lalu yang kosong, atur warna default
+                    if (isPastDateView || (isTodayView && isPastCircle(circleTime))) {
+                        circle.classList.add('past');
+                    }
+                }
+            });
+            
+            // Setelah load, update status lingkaran (past/future)
+            updateCircleStatus();
+            // Load tag/ikon ke lingkaran
+            loadTagsToGrid();
+            // Update status level dan energi mental
+            updateStatus();
+        }
+
+        // Fungsi helper untuk menentukan apakah lingkaran sudah lewat (untuk hari ini)
+        function isPastCircle(circleTime) {
+            if (!isToday(currentDate)) return false;
+            
+            const now = new Date();
+            const currentHours = now.getHours();
+            const currentMinutes = now.getMinutes();
+            const totalCurrentMinutes = (currentHours * 60) + currentMinutes;
+            
+            return circleTime < totalCurrentMinutes;
+        }
+
+        function saveGridState() {
+            const circles = document.querySelectorAll('.circle');
+            const dataToSave = [];
+            circles.forEach(circle => {
+                if (circle.dataset.toolId) {
+                    dataToSave.push({
+                        time: parseInt(circle.dataset.time),
+                        toolId: circle.dataset.toolId
+                    });
+                }
+            });
+            saveDayData(dataToSave);
+        }
+
+        // LOGIKA VISUAL MASA LALU & MASA DEPAN
+        function updateCircleStatus() {
+            const now = new Date();
+            const today = new Date();
+            const currentViewDate = currentDate;
+            
+            // Reset semua lingkaran
+            const circles = document.querySelectorAll('.circle');
+            circles.forEach(circle => {
+                circle.classList.remove('past');
+            });
+            
+            // Jika yang dilihat adalah hari ini
+            if (isToday(currentViewDate)) {
+                const currentHours = now.getHours();
+                const currentMinutes = now.getMinutes();
+                const totalCurrentMinutes = (currentHours * 60) + currentMinutes;
+                
+                circles.forEach(circle => {
+                    const circleTime = parseInt(circle.dataset.time);
+                    
+                    if (circleTime < totalCurrentMinutes) {
+                        circle.classList.add('past');
+                        
+                        // Untuk lingkaran masa lalu yang belum diisi, atur warna default
+                        if (!circle.classList.contains('filled')) {
+                            circle.style.backgroundColor = '';
+                            circle.style.border = '';
+                        }
+                    }
+                });
+            } 
+            // Jika yang dilihat adalah hari kemarin atau sebelumnya
+            else if (isPastDate(currentViewDate)) {
+                circles.forEach(circle => {
+                    circle.classList.add('past');
+                });
+            }
+            // Jika masa depan (besok atau setelahnya), tidak ada yang jadi past
+        }
+
+        // Fungsi untuk format durasi
+        function formatDuration(minutes) {
+            const hours = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            
+            if (hours === 0) {
+                return `${mins} menit`;
+            } else if (mins === 0) {
+                return `${hours} jam`;
+            } else {
+                return `${hours} jam ${mins} menit`;
+            }
+        }
+
+        // Fungsi untuk format jam:menit
+        function formatHours(minutes) {
+            const hours = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            if (hours === 0) return `${mins}m`;
+            if (mins === 0) return `${hours}j`;
+            return `${hours}j ${mins}m`;
+        }
+
+        // Fungsi untuk format jam dengan desimal (untuk rata-rata)
+        function formatHoursDecimal(minutes) {
+            // Konversi menit ke jam dengan 1 angka desimal
+            const hours = (minutes / 60).toFixed(1);
+            return `${hours} jam`;
+        }
+
+        // Fungsi untuk mendapatkan indeks lingkaran
+        function getCircleIndex(circle) {
+            const allCircles = Array.from(document.querySelectorAll('.circle'));
+            return allCircles.indexOf(circle);
+        }
+
+        // Fungsi untuk mendapatkan lingkaran dalam range
+        function getCirclesInRange(startCircle, endCircle) {
+            const allCircles = Array.from(document.querySelectorAll('.circle'));
+            const startIndex = getCircleIndex(startCircle);
+            const endIndex = getCircleIndex(endCircle);
+
+            if (startIndex === -1 || endIndex === -1) return new Set();
+            const step = startIndex < endIndex ? 1 : -1;
+
+            const circlesInRange = new Set();
+            for (let i = startIndex; i !== endIndex + step; i += step) {
+                circlesInRange.add(allCircles[i]);
+            }
+            
+            return circlesInRange;
+        }
+
+        // Fungsi untuk menandai lingkaran yang dipilih selama drag
+        function selectCircle(circle) {
+            // SEMUA lingkaran bisa dipilih, termasuk yang sudah lewat
+            
+            if (!selectedCircles.has(circle)) {
+                selectedCircles.add(circle);
+                circle.classList.add('selected');
+                
+                // Simpan sebagai lingkaran terakhir yang dipilih
+                lastSelectedCircle = circle;
+                
+                updateSelectionInfo();
+                
+                // Cek jika ada minimal 2 lingkaran terpilih dalam waktu ≤1 detik
+                if (selectedCircles.size >= 2) {
+                    const currentTime = Date.now();
+                    const timeDiff = currentTime - selectionStartTime;
+                    
+                    if (timeDiff <= 1000) { // 1 detik = 1000ms
+                        isFastSelection = true;
+                        isDragging = false; // Matikan drag
+                        
+                        // Batalkan seleksi dan JANGAN tampilkan popup
+                        setTimeout(() => {
+                            if (isFastSelection) {
+                                clearSelection();
+                                isFastSelection = false;
+                            }
+                        }, 50);
+                        
+                        return; // Jangan lanjutkan ke logika drag
+                    }
+                }
+            }
+        }
+
+        // Fungsi untuk menghapus pilihan dari lingkaran
+        function deselectCircle(circle) {
+            if (selectedCircles.has(circle)) {
+                selectedCircles.delete(circle);
+                circle.classList.remove('selected');
+                
+                // Jika lingkaran yang dihapus adalah lastSelectedCircle, atur ulang
+                if (lastSelectedCircle === circle) {
+                    // Cari lingkaran lain yang masih terpilih
+                    const remainingCircles = Array.from(selectedCircles);
+                    lastSelectedCircle = remainingCircles.length > 0 ? remainingCircles[remainingCircles.length - 1] : null;
+                }
+                
+                updateSelectionInfo();
+            }
+        }
+
+        // Fungsi untuk menghapus semua pilihan
+        function clearSelection() {
+            selectedCircles.forEach(circle => {
+                circle.classList.remove('selected');
+            });
+            selectedCircles.clear();
+            dragSelectedSet.clear();
+            lastSelectedCircle = null;
+            updateSelectionInfo();
+            isFastSelection = false;
+        }
+
+        // Fungsi untuk mengonversi menit ke format jam:menit (HH:MM)
+        function minutesToTime(minutes) {
+            const hours = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+        }
+
+        // Fungsi untuk memperbarui info pilihan - DIPERBARUI DENGAN INFORMASI AKTIVITAS TERAKHIR
+        function updateSelectionInfo() {
+            const count = selectedCircles.size;
+            const totalMinutes = count * 5; // Setiap lingkaran = 5 menit
+            
+            selectedCount.textContent = count;
+            selectedTime.textContent = formatDuration(totalMinutes);
+            
+            // Update informasi aktivitas terakhir yang dipilih
+            if (lastSelectedCircle && selectedCircles.has(lastSelectedCircle)) {
+                const tooltipName = lastSelectedCircle.querySelector('.tooltip-name');
+                const activityName = tooltipName ? tooltipName.textContent : '-';
+                const circleTime = parseInt(lastSelectedCircle.dataset.time);
+                const timeString = minutesToTime(circleTime);
+                
+                // Update teks dengan format "NamaAktivitas (HH:MM)"
+                selectionActivityName.textContent = `${activityName} (${timeString})`;
+                
+                // Update warna ikon
+                const toolId = lastSelectedCircle.dataset.toolId;
+                if (toolId) {
+                    const color = getToolColor(toolId);
+                    selectionActivityIcon.style.backgroundColor = color;
+                } else {
+                    selectionActivityIcon.style.backgroundColor = '#cccccc';
+                }
+                
+                selectionInfo.classList.add('show');
+            } else if (count > 0) {
+                // Jika ada lingkaran yang dipilih tapi lastSelectedCircle tidak valid
+                // Ambil lingkaran pertama dari selectedCircles
+                const firstCircle = Array.from(selectedCircles)[0];
+                if (firstCircle) {
+                    const tooltipName = firstCircle.querySelector('.tooltip-name');
+                    const activityName = tooltipName ? tooltipName.textContent : '-';
+                    const circleTime = parseInt(firstCircle.dataset.time);
+                    const timeString = minutesToTime(circleTime);
+                    
+                    selectionActivityName.textContent = `${activityName} (${timeString})`;
+                    
+                    const toolId = firstCircle.dataset.toolId;
+                    if (toolId) {
+                        const color = getToolColor(toolId);
+                        selectionActivityIcon.style.backgroundColor = color;
+                    } else {
+                        selectionActivityIcon.style.backgroundColor = '#cccccc';
+                    }
+                    
+                    selectionInfo.classList.add('show');
+                }
+            } else {
+                selectionInfo.classList.remove('show');
+                selectionActivityName.textContent = '-';
+                selectionActivityIcon.style.backgroundColor = '#cccccc';
+            }
+            
+            // Update tombol tag
+            updateSelectionTags();
+        }
+
+        // Fungsi helper untuk mendapatkan warna tool berdasarkan toolId
+        function getToolColor(toolId) {
+            if (!toolId) return '#cccccc';
+            
+            const tools = getTools();
+            const tool = tools.find(t => t.id === toolId);
+            
+            if (tool) {
+                return tool.hexColor || resolveColor(tool.color);
+            }
+            
+            // Cek juga di default tools
+            const defaultTool = defaultTools.find(t => t.id === toolId);
+            if (defaultTool) {
+                return defaultTool.hexColor || resolveColor(defaultTool.color);
+            }
+            
+            return '#cccccc';
+        }
+
+        // Fungsi untuk berpindah tab di popup
+        function switchPopupTab(panelId) {
+            // Update tab buttons
+            popupTabButtons.forEach(btn => {
+                if (btn.dataset.panel === panelId) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            
+            // Update tab panels
+            tabPanels.forEach(panel => {
+                if (panel.id === panelId) {
+                    panel.classList.add('active');
+                } else {
+                    panel.classList.remove('active');
+                }
+            });
+        }
+
+        // ==============================
+        // FUNGSI DRAG YANG DIPERBAIKI
+        // ==============================
+
+        function handleDragMove(clientX, clientY) {
+            if (!isDragging || !dragStartCircle || isFastSelection) return;
+            
+            const target = document.elementFromPoint(clientX, clientY);
+            if (target && target.classList.contains('circle') && target !== dragCurrentCircle) {
+                // Calculate new range from dragStartCircle to target
+                const newSelectedSet = getCirclesInRange(dragStartCircle, target);
+                
+                // Compare with previous dragSelectedSet
+                // Deselect circles that were in dragSelectedSet but not in newSelectedSet
+                dragSelectedSet.forEach(circle => {
+                    if (!newSelectedSet.has(circle)) {
+                        deselectCircle(circle);
+                    }
+                });
+                
+                // Select circles that are in newSelectedSet but not in dragSelectedSet
+                newSelectedSet.forEach(circle => {
+                    if (!dragSelectedSet.has(circle)) {
+                        selectCircle(circle);
+                    }
+                });
+                
+                // Update dragSelectedSet and dragCurrentCircle
+                dragSelectedSet = newSelectedSet;
+                dragCurrentCircle = target;
+            }
+        }
+
+        // ==============================
+        // PERBAIKAN: EXPORT/IMPORT FUNCTIONS
+        // ==============================
+
+        function exportAllData() {
+            const allData = {
+                version: '1.0',
+                exportDate: new Date().toISOString(),
+                appName: 'Time Blocker',
+                data: {}
+            };
+            
+            // Collect all schedule data
+            const scheduleData = {};
+            const tagsData = {};
+            const logData = {};
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('tb_schedule_')) {
+                    const dateStr = key.replace('tb_schedule_', '');
+                    scheduleData[dateStr] = JSON.parse(localStorage.getItem(key));
+                }
+                if (key.startsWith('tb_tags_')) {
+                    const dateStr = key.replace('tb_tags_', '');
+                    tagsData[dateStr] = JSON.parse(localStorage.getItem(key));
+                }
+                if (key.startsWith('tb_log_')) {
+                    const dateStr = key.replace('tb_log_', '');
+                    logData[dateStr] = JSON.parse(localStorage.getItem(key));
+                }
+            }
+            
+            allData.data.schedules = scheduleData;
+            allData.data.tags = tagsData;
+            allData.data.logs = logData;
+            allData.data.customTools = JSON.parse(localStorage.getItem('tb_custom_tools')) || [];
+            allData.data.hiddenDefaultTools = JSON.parse(localStorage.getItem('tb_hidden_default_tools')) || [];
+            
+            // Convert to JSON string
+            const dataStr = JSON.stringify(allData, null, 2);
+            
+            // Create download link
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            
+            // PERBAIKAN: Gunakan tanggal lokal untuk nama file
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const exportFileName = `timeblocker_backup_${year}-${month}-${day}.json`;
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileName);
+            linkElement.click();
+            
+            // Show confirmation
+            showToast(`Data berhasil diexport ke file: ${exportFileName}`, 3000);
+        }
+
+        function importAllData(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    // Validate the data structure
+                    if (!importedData || !importedData.data) {
+                        throw new Error('Format file tidak valid');
+                    }
+                    
+                    if (!confirm('Import data akan menimpa semua data yang ada. Lanjutkan?')) {
+                        return;
+                    }
+                    
+                    // Clear existing schedule data
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key.startsWith('tb_schedule_') || key.startsWith('tb_tags_') || key.startsWith('tb_log_')) {
+                            localStorage.removeItem(key);
+                        }
+                    }
+                    
+                    // Import new data
+                    if (importedData.data.schedules) {
+                        Object.keys(importedData.data.schedules).forEach(dateStr => {
+                            localStorage.setItem(`tb_schedule_${dateStr}`, 
+                                JSON.stringify(importedData.data.schedules[dateStr]));
+                        });
+                    }
+                    
+                    if (importedData.data.tags) {
+                        Object.keys(importedData.data.tags).forEach(dateStr => {
+                            localStorage.setItem(`tb_tags_${dateStr}`, 
+                                JSON.stringify(importedData.data.tags[dateStr]));
+                        });
+                    }
+                    
+                    if (importedData.data.logs) {
+                        Object.keys(importedData.data.logs).forEach(dateStr => {
+                            localStorage.setItem(`tb_log_${dateStr}`, 
+                                JSON.stringify(importedData.data.logs[dateStr]));
+                        });
+                    }
+                    
+                    if (importedData.data.customTools) {
+                        localStorage.setItem('tb_custom_tools', 
+                            JSON.stringify(importedData.data.customTools));
+                    }
+                    
+                    if (importedData.data.hiddenDefaultTools) {
+                        localStorage.setItem('tb_hidden_default_tools', 
+                            JSON.stringify(importedData.data.hiddenDefaultTools));
+                    }
+                    
+                    // Show success message
+                    const scheduleCount = Object.keys(importedData.data.schedules || {}).length;
+                    const tagsCount = Object.keys(importedData.data.tags || {}).length;
+                    const logCount = Object.keys(importedData.data.logs || {}).length;
+                    showToast(`Data berhasil diimport! Jadwal: ${scheduleCount} hari, Tag: ${tagsCount} hari, Log: ${logCount} hari`, 3000);
+                    
+                    // Refresh the application
+                    renderPopupTools();
+                    renderManageTools();
+                    refreshView();
+                    updateStatistics();
+                    renderLogTable();
+                    
+                } catch (error) {
+                    alert('Error mengimport data: ' + error.message);
+                }
+            };
+            
+            reader.onerror = function() {
+                alert('Gagal membaca file');
+            };
+            
+            reader.readAsText(file);
+        }
+
+        // Fungsi untuk export data hari ini saja
+        function exportTodayData() {
+            const todayData = {
+                version: '1.0',
+                exportDate: new Date().toISOString(),
+                appName: 'Time Blocker - Single Day',
+                date: currentDate.toLocaleDateString('id-ID'),
+                data: {
+                    schedule: getDayData(),
+                    tags: getTagsData(),
+                    log: loadLogData(),
+                    customTools: JSON.parse(localStorage.getItem('tb_custom_tools')) || [],
+                    hiddenDefaultTools: JSON.parse(localStorage.getItem('tb_hidden_default_tools')) || []
+                }
+            };
+            
+            const dataStr = JSON.stringify(todayData, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            
+            // PERBAIKAN: Gunakan tanggal lokal untuk nama file
+            const year = currentDate.getFullYear();
+            const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+            const day = String(currentDate.getDate()).padStart(2, '0');
+            const exportFileName = `timeblocker_${year}-${month}-${day}.json`;
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileName);
+            linkElement.click();
+            
+            showToast(`Data hari ini berhasil diexport!`, 2000);
+        }
+
+        // Fungsi untuk reset semua data
+        function resetAllData() {
+            if (confirm('PERINGATAN: Ini akan menghapus SEMUA data jadwal, tag, dan aktivitas custom. Tidak bisa dibatalkan!\n\nApakah Anda yakin?')) {
+                if (confirm('SANGAT YAKIN? Semua data akan hilang permanen.')) {
+                    // Clear all schedule data
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key.startsWith('tb_schedule_') || key.startsWith('tb_tags_') || key.startsWith('tb_log_')) {
+                            localStorage.removeItem(key);
+                        }
+                    }
+                    
+                    // Clear custom tools
+                    localStorage.removeItem('tb_custom_tools');
+                    localStorage.removeItem('tb_hidden_default_tools');
+                    
+                    showToast('Semua data telah direset. Aplikasi akan direfresh.', 3000);
+                    
+                    // Reset to default tools
+                    hiddenDefaultTools = [];
+                    saveHiddenDefaultTools();
+                    
+                    // Refresh the application
+                    renderPopupTools();
+                    renderManageTools();
+                    refreshView();
+                    updateStatistics();
+                    renderLogTable();
+                }
+            }
+        }
+
+        // ==============================
+        // PERBAIKAN: STATISTIK FUNCTIONS - DIPERBARUI UNTUK TABEL DENGAN KOLOM RATA-RATA PER HARI
+        // ==============================
+
+        function formatDateForDisplay(date) {
+            return date.toLocaleDateString('id-ID', { 
+                day: '2-digit',
+                month: 'short'
+            });
+        }
+
+        function getActivityStats(period = 7) {
+            const tools = getTools();
+            const stats = {
+                dates: [],
+                tools: {},
+                totalMinutesAll: 0 // Total semua aktivitas
+            };
+            
+            // Inisialisasi data untuk setiap tool
+            tools.forEach(tool => {
+                stats.tools[tool.id] = {
+                    name: tool.name,
+                    color: tool.hexColor || resolveColor(tool.color),
+                    totalMinutes: 0,
+                    dailyMinutes: new Array(period).fill(0)
+                };
+            });
+            
+            // Loop untuk setiap hari dalam periode
+            for (let i = period - 1; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                
+                // Format tanggal untuk display
+                stats.dates.push(formatDateForDisplay(date));
+                
+                // PERBAIKAN: Ambil data untuk hari ini menggunakan getStorageKey yang sudah diperbaiki
+                const dayData = getDayData(date);
+                
+                // Hitung total menit untuk setiap tool
+                dayData.forEach(item => {
+                    if (stats.tools[item.toolId]) {
+                        // Setiap circle = 5 menit
+                        stats.tools[item.toolId].totalMinutes += 5;
+                        stats.tools[item.toolId].dailyMinutes[period - 1 - i] += 5;
+                        // Tambahkan ke total semua aktivitas
+                        stats.totalMinutesAll += 5;
+                    }
+                });
+            }
+            
+            return stats;
+        }
+
+        function updateStatistics() {
+            const stats = getActivityStats(chartPeriod);
+            const tools = getTools();
+            
+            // Filter tools yang memiliki data dalam periode ini
+            const toolsWithData = tools.filter(tool => stats.tools[tool.id].totalMinutes > 0);
+            
+            // Jika tidak ada data, tampilkan pesan
+            if (toolsWithData.length === 0) {
+                document.getElementById('statsSummary').innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #6b7280; width: 100%;">
+                        <p style="margin-bottom: 10px; font-size: 1rem;">Tidak ada data aktivitas dalam periode ini.</p>
+                        <p style="font-size: 0.9rem;">Mulai blok waktu Anda untuk melihat statistik!</p>
+                    </div>
+                `;
+                
+                if (statsChart) {
+                    statsChart.destroy();
+                }
+                
+                // Buat chart kosong
+                const ctx = document.getElementById('statsChart').getContext('2d');
+                statsChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: stats.dates,
+                        datasets: []
+                    },
+                    options: getChartOptions()
+                });
+                
+                return;
+            }
+            
+            // Update summary table (dalam bentuk tabel) - DIPERBARUI DENGAN KOLOM RATA-RATA PER HARI
+            updateSummaryTable(stats, toolsWithData);
+            
+            // Update chart
+            updateChart(stats, toolsWithData);
+        }
+
+        // ==============================
+        // PERUBAHAN: Fungsi untuk membuat tabel daftar aktivitas dengan rata-rata per hari
+        // ==============================
+
+        function updateSummaryTable(stats, toolsWithData) {
+            const summaryContainer = document.getElementById('statsSummary');
+            
+            // Hitung total menit keseluruhan untuk persentase
+            let totalOverallMinutes = 0;
+            toolsWithData.forEach(tool => {
+                totalOverallMinutes += stats.tools[tool.id].totalMinutes;
+            });
+            
+            // Urutkan berdasarkan total menit (descending)
+            const sortedTools = [...toolsWithData].sort((a, b) => {
+                return stats.tools[b.id].totalMinutes - stats.tools[a.id].totalMinutes;
+            });
+            
+            // PERUBAHAN: Buat tabel HTML dengan 4 kolom
+            let tableHTML = `
+                <table class="stats-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 30%;">Aktivitas</th>
+                            <th style="width: 25%;">Total Waktu</th>
+                            <th style="width: 20%;">Persentase</th>
+                            <th style="width: 25%;">Rata-Rata per Hari</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+            
+            // Baris untuk setiap aktivitas
+            sortedTools.forEach(tool => {
+                const toolStats = stats.tools[tool.id];
+                const percentage = totalOverallMinutes > 0 ? 
+                    ((toolStats.totalMinutes / totalOverallMinutes) * 100).toFixed(1) : 0;
+                
+                // Hitung rata-rata per hari
+                const dailyAverageMinutes = toolStats.totalMinutes / chartPeriod;
+                
+                tableHTML += `
+                    <tr>
+                        <td>
+                            <div class="activity-name-cell">
+                                <div class="activity-color-indicator" style="background-color: ${tool.hexColor || resolveColor(tool.color)}"></div>
+                                <span>${tool.name}</span>
+                            </div>
+                        </td>
+                        <td class="activity-time">${formatHours(toolStats.totalMinutes)}</td>
+                        <td class="activity-percentage">${percentage}%</td>
+                        <td class="activity-percentage">${formatHoursDecimal(dailyAverageMinutes)}/hari</td>
+                    </tr>`;
+            });
+            
+            // PERUBAHAN: Baris total - hanya "Total" saja
+            const totalDailyAverageMinutes = totalOverallMinutes / chartPeriod;
+            
+            tableHTML += `
+                <tr class="average-row">
+                    <td>Total</td>
+                    <td class="activity-time">${formatHours(totalOverallMinutes)}</td>
+                    <td class="activity-percentage">100%</td>
+                    <td class="activity-percentage">${formatHoursDecimal(totalDailyAverageMinutes)}/hari</td>
+                </tr>`;
+            
+            tableHTML += `
+                </tbody>
+            </table>`;
+            
+            summaryContainer.innerHTML = tableHTML;
+        }
+
+        function getChartOptions() {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true,
+                            pointStyle: 'circle',
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.dataset.label || '';
+                                const value = context.raw;
+                                return `${label}: ${formatHours(value)}`;
+                            }
+                        },
+                        backgroundColor: 'rgba(17, 24, 39, 0.9)',
+                        titleFont: { size: 12 },
+                        bodyFont: { size: 11 },
+                        padding: 10
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Waktu (menit)',
+                            font: { size: 12 }
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return formatHours(value);
+                            },
+                            font: { size: 10 }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Tanggal',
+                            font: { size: 12 }
+                        },
+                        ticks: {
+                            font: { size: 10 },
+                            maxRotation: 45
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                elements: {
+                    line: {
+                        tension: 0.3,
+                        borderWidth: 3
+                    },
+                    point: {
+                        radius: 4,
+                        hoverRadius: 7,
+                        borderWidth: 2
+                    }
+                }
+            };
+        }
+
+        function updateChart(stats, toolsWithData) {
+            const ctx = document.getElementById('statsChart').getContext('2d');
+            
+            // Hancurkan chart lama jika ada
+            if (statsChart) {
+                statsChart.destroy();
+            }
+            
+            // Siapkan dataset untuk chart
+            const datasets = toolsWithData.map(tool => {
+                const toolStats = stats.tools[tool.id];
+                // Gunakan hexColor untuk chart
+                const lineColor = tool.hexColor || resolveColor(tool.color);
+                
+                return {
+                    label: tool.name,
+                    data: toolStats.dailyMinutes,
+                    borderColor: lineColor,
+                    backgroundColor: lineColor + '20', // Tambah alpha 0.1
+                    borderWidth: 3,
+                    pointBackgroundColor: lineColor,
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    fill: true
+                };
+            });
+            
+            // Buat chart baru
+            statsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: stats.dates,
+                    datasets: datasets
+                },
+                options: getChartOptions()
+            });
+        }
+
+        // ==============================
+        // EVENT LISTENERS YANG DIPERBAIKI
+        // ==============================
+
+        // Tab Navigation
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const tab = button.dataset.tab;
+                
+                // Update tab button states
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                
+                // Show/hide tabs
+                if (tab === 'schedule') {
+                    gridContainer.style.display = 'flex';
+                    statusContainer.style.display = 'flex'; /* DIPERBARUI: gunakan flex */
+                    statsTab.classList.remove('active');
+                } else if (tab === 'stats') {
+                    gridContainer.style.display = 'none';
+                    statusContainer.style.display = 'none';
+                    statsTab.classList.add('active');
+                    updateStatistics();
+                }
+            });
+        });
+
+        // Stats Period Buttons
+        statsButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                // Update button states
+                statsButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                
+                // Update period and refresh stats
+                chartPeriod = parseInt(button.dataset.period);
+                updateStatistics();
+            });
+        });
+
+        // Event listeners untuk log
+        logFabBtn.addEventListener('click', toggleLogContainer);
+        closeLogBtn.addEventListener('click', toggleLogContainer);
+        clearLogBtn.addEventListener('click', clearTodayLog);
+        logCloseBtn.addEventListener('click', () => { // TAMBAHAN: Event listener untuk tombol close
+            logContainer.classList.remove('show');
+        });
+
+        // Tutup log container saat klik di luar
+        document.addEventListener('click', (e) => {
+            if (!logContainer.contains(e.target) && 
+                !logFabBtn.contains(e.target) && 
+                logContainer.classList.contains('show')) {
+                logContainer.classList.remove('show');
+            }
+        });
+
+        // Mouse Events untuk grid - DENGAN CEK MODE SCROLL ONLY
+        document.addEventListener('mousedown', (e) => {
+            // Jika mode scroll only aktif, jangan lakukan apa-apa
+            if (isScrollOnlyMode) return;
+            
+            if (e.target.classList.contains('circle')) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Reset state
+                isFastSelection = false;
+                selectionStartTime = Date.now();
+                
+                // Set drag state
+                isDragging = true;
+                dragStartCircle = e.target;
+                dragCurrentCircle = e.target;
+                
+                // Clear previous selection if not holding Ctrl/Cmd
+                if (!window.event?.ctrlKey && !window.event?.metaKey) {
+                    clearSelection();
+                }
+                
+                // Select the starting circle
+                selectCircle(dragStartCircle);
+                
+                // Initialize dragSelectedSet with the starting circle
+                dragSelectedSet = new Set([dragStartCircle]);
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            // Jika mode scroll only aktif, jangan lakukan apa-apa
+            if (isScrollOnlyMode) return;
+            
+            if (isDragging && !isFastSelection) {
+                // Lakukan drag selection
+                handleDragMove(e.clientX, e.clientY);
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            // Jika mode scroll only aktif, jangan lakukan apa-apa
+            if (isScrollOnlyMode) return;
+            
+            // Hanya tampilkan popup jika drag berlangsung >1 detik dan tidak ada seleksi cepat
+            if (isDragging && selectedCircles.size > 0 && !isFastSelection) {
+                const dragDuration = Date.now() - selectionStartTime;
+                if (dragDuration > 1000) { // Hanya jika drag >1 detik
+                    showPopup();
+                }
+            }
+            
+            // Reset semua state
+            isDragging = false;
+            dragStartCircle = null;
+            dragCurrentCircle = null;
+            dragSelectedSet.clear();
+            isFastSelection = false; // Reset seleksi cepat
+        });
+
+        // Touch Events untuk grid - DENGAN CEK MODE SCROLL ONLY
+        document.addEventListener('touchstart', (e) => {
+            // Jika mode scroll only aktif, jangan lakukan apa-apa
+            if (isScrollOnlyMode) return;
+            
+            if (e.target.classList.contains('circle')) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const touch = e.touches[0];
+                
+                // Reset state
+                isFastSelection = false;
+                selectionStartTime = Date.now();
+                
+                // Set drag state
+                isDragging = true;
+                dragStartCircle = e.target;
+                dragCurrentCircle = e.target;
+                
+                // Clear previous selection if not holding Ctrl/Cmd
+                if (!window.event?.ctrlKey && !window.event?.metaKey) {
+                    clearSelection();
+                }
+                
+                // Select the starting circle
+                selectCircle(dragStartCircle);
+                
+                // Initialize dragSelectedSet with the starting circle
+                dragSelectedSet = new Set([dragStartCircle]);
+            }
+        }, { passive: false });
+
+        document.addEventListener('touchmove', (e) => {
+            // Jika mode scroll only aktif, jangan lakukan apa-apa
+            if (isScrollOnlyMode) return;
+            
+            if (isDragging && !isFastSelection) {
+                e.preventDefault();
+                
+                const touch = e.touches[0];
+                // Lakukan drag selection
+                handleDragMove(touch.clientX, touch.clientY);
+            }
+        }, { passive: false });
+
+        document.addEventListener('touchend', (e) => {
+            // Jika mode scroll only aktif, jangan lakukan apa-apa
+            if (isScrollOnlyMode) return;
+            
+            // Hanya tampilkan popup jika drag berlangsung >1 detik dan tidak ada seleksi cepat
+            if (isDragging && selectedCircles.size > 0 && !isFastSelection) {
+                e.preventDefault();
+                const dragDuration = Date.now() - selectionStartTime;
+                if (dragDuration > 1000) { // Hanya jika drag >1 detik
+                    setTimeout(() => showPopup(), 100);
+                }
+            }
+            
+            // Reset semua state
+            isDragging = false;
+            dragStartCircle = null;
+            dragCurrentCircle = null;
+            dragSelectedSet.clear();
+            isFastSelection = false; // Reset seleksi cepat
+        }, { passive: false });
+
+        // Mencegah konflik dengan scroll pada grid container
+        // Biarkan scroll jika tidak sedang drag
+        gridContainer.addEventListener('touchmove', (e) => {
+            if (!isDragging) {
+                return;
+            }
+            e.preventDefault();
+        }, { passive: false });
+
+        // Navigasi & Tombol
+        document.getElementById('prevDay').addEventListener('click', () => {
+            currentDate.setDate(currentDate.getDate() - 1);
+            refreshView();
+        });
+        
+        document.getElementById('nextDay').addEventListener('click', () => {
+            currentDate.setDate(currentDate.getDate() + 1);
+            refreshView();
+        });
+        
+        // Tombol Gembok untuk toggle mode scroll only
+        lockBtn.addEventListener('click', () => {
+            toggleScrollOnlyMode();
+        });
+        
+        // Floating Action Button untuk membuka popup
+        fabBtn.addEventListener('click', () => {
+            showPopup();
+            // Buka tab "Kelola Aktivitas" saat dibuka dari FAB
+            switchPopupTab('managePanel');
+        });
+        
+        // Tombol Tutup Popup
+        closePopupBtn.addEventListener('click', hidePopup);
+        popupOverlay.addEventListener('click', (e) => {
+            if (e.target === popupOverlay) {
+                hidePopup();
+            }
+        });
+        
+        // Tombol hapus pilihan
+        clearSelectionBtn.addEventListener('click', () => {
+            clearSelection();
+        });
+        
+        // Tombol Tambah Aktivitas di Popup
+        popupAddToolBtn.addEventListener('click', () => {
+            const name = popupCustomName.value.trim();
+            const color = popupCustomColor.value;
+            if (!name) return alert("Mohon masukkan nama aktivitas.");
+            const newId = 'custom_' + Date.now();
+            saveCustomTool({ 
+                id: newId, 
+                name: name, 
+                color: color,
+                hexColor: color // Simpan juga hex color untuk chart
+            });
+            popupCustomName.value = '';
+            popupCustomColor.value = '#ff0000';
+        });
+
+        // Tab di dalam popup
+        popupTabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const panelId = button.dataset.panel;
+                switchPopupTab(panelId);
+            });
+        });
+
+        // Export/Import Event Listeners
+        exportBtn.addEventListener('click', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                // Ctrl+Click untuk export hari ini saja
+                exportTodayData();
+                return;
+            }
+            
+            // Export semua data
+            exportAllData();
+        });
+        
+        importBtn.addEventListener('click', () => {
+            importFileInput.click();
+        });
+
+        importFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                importAllData(file);
+                // Reset input
+                e.target.value = '';
+            }
+        });
+        
+        // Reset Data Event Listener
+        resetBtn.addEventListener('click', resetAllData);
+
+        function refreshView() {
+            updateDateDisplay();
+            loadGridData();
+            clearSelection();
+            updateSelectionInfo();
+            updateStatus(); // Update status saat data berubah
+            
+            // Muat log untuk tanggal yang sedang dilihat
+            renderLogTable();
+        }
+
+        // ==============================
+        // INITIALIZATION
+        // ==============================
+
+        function init() {
+            initGridStructure();
+            renderPopupTools();
+            renderManageTools();
+            renderSelectionTags(); // Render tombol tag
+            refreshView();
+            
+            // Set status awal tombol gembok
+            if (isScrollOnlyMode) {
+                lockBtn.classList.add('active');
+            } else {
+                lockBtn.classList.remove('active');
+            }
+            
+            // Initialize statistics
+            updateStatistics();
+            
+            // Render log table
+            renderLogTable();
+            
+            // Update status waktu setiap 30 detik
+            setInterval(() => {
+                // Hanya update jika sedang melihat hari ini
+                if (isToday(currentDate)) {
+                    updateCircleStatus();
+                    updateStatus(); // Update status level dan energi mental
+                }
+            }, 30000);
+            
+            // Update waktu saat halaman kembali aktif
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) {
+                    if (isToday(currentDate)) {
+                        updateCircleStatus();
+                        updateStatus();
+                    }
+                    // Update statistik juga
+                    updateStatistics();
+                }
+            });
+        }
+
+        // Start the application
+        init();
+
+    </script>
+</body>
+</html>
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js");
+  });
+}
